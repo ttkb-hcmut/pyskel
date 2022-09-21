@@ -23,14 +23,24 @@ let translate_ast (m: Concrete.Module.t) : constant =
   | {Concrete.Module.body =
        [Concrete.Statement.Expr
           {value = Concrete.Expression.Constant
-               {value = Concrete.Constant.True; _ }; _}]; _} ->
+               {value = Concrete.Constant.True; _}; _}]; _} ->
     True
   | {Concrete.Module.body =
        [Concrete.Statement.Expr
           {value = Concrete.Expression.Constant
-               {value = Concrete.Constant.False; _ }; _}]; _} ->
+               {value = Concrete.Constant.False; _}; _}]; _} ->
     False
-  | _ -> True
+  | {Concrete.Module.body =
+       [Concrete.Statement.Expr
+          {value = Concrete.Expression.Constant
+               {value = Concrete.Constant.None; _}; _}]; _} ->
+    None
+  | {Concrete.Module.body =
+       [Concrete.Statement.Expr
+          {value = Concrete.Expression.Name {id = s; _}; _}]; _}
+    when Concrete.Identifier.to_string s = "NotImplemented" ->
+    NotImplemented
+  | _ -> failwith "Not specified yet"
 
 
 let _ =
@@ -51,9 +61,18 @@ let _ =
   let a = Parser.with_context @@ (fun context ->
       Parser.Concrete.parse_module ~context content) in
 
+  (* Check for parse error *)
+  Result.iter_error
+    (fun Parser.Error.{message; line; column; _} ->
+       Printf.fprintf stderr "Syntax error at (line %d, column %d):\n\t%s\n" line column message;
+       exit 1;
+    ) a;
+
   (* Eval file *)
   let ast = translate_ast (Result.get_ok a) in
   begin match M.extract (eval ast) with
     | True -> Printf.printf "Result is \"True\".\n"
     | False -> Printf.printf "Result is \"False\".\n"
+    | None -> Printf.printf "Result is \"None\".\n"
+    | NotImplemented -> Printf.printf "Result is \"NotImplemented\".\n"
   end;

@@ -1,10 +1,14 @@
 type constant =
   | True
   | False
+  | None
+  | NotImplemented
 
 
 val eval (c:constant) : constant =
   match c with
   | True -> True
   | False -> False
+  | None -> None
+  | NotImplemented -> NotImplemented
   end
