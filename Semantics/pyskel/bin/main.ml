@@ -18,10 +18,19 @@ module InterInst = Inst(Necromonads.ContPoly)
 
 open InterInst.Interpreter
 
-
-let _ =
-  match M.extract (eval (True)) with
-  | True -> Printf.printf "All is ok.\n"
+let translate_ast (m: Concrete.Module.t) : constant =
+  match m with
+  | {Concrete.Module.body =
+       [Concrete.Statement.Expr
+          {value = Concrete.Expression.Constant
+               {value = Concrete.Constant.True; _ }; _}]; _} ->
+    True
+  | {Concrete.Module.body =
+       [Concrete.Statement.Expr
+          {value = Concrete.Expression.Constant
+               {value = Concrete.Constant.False; _ }; _}]; _} ->
+    False
+  | _ -> True
 
 
 let _ =
@@ -42,14 +51,9 @@ let _ =
   let a = Parser.with_context @@ (fun context ->
       Parser.Concrete.parse_module ~context content) in
 
-  (* Check result *)
-  begin
-    match (Result.get_ok a) with
-    | { Concrete.Module.body = [Concrete.Statement.Expr { value = Concrete.Expression.Constant { value = Concrete.Constant.True; _ }; _}]; _}
-      -> Printf.printf "I parsed \"True\".\n"
-    | _ ->
-      Printf.printf "I did not parse \"True\".\n"
-  end
-
-  (* TODO: Make a convertion module (at least a function) from
-     PyreAst.Concrete.Module to the subset of specified python semantics *)
+  (* Eval file *)
+  let ast = translate_ast (Result.get_ok a) in
+  begin match M.extract (eval ast) with
+    | True -> Printf.printf "Result is \"True\".\n"
+    | False -> Printf.printf "Result is \"False\".\n"
+  end;

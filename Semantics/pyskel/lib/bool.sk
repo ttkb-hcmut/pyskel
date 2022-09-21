@@ -1,8 +1,10 @@
 type constant =
   | True
+  | False
 
 
 val eval (c:constant) : constant =
   match c with
   | True -> True
+  | False -> False
   end
