@@ -1,6 +1,10 @@
 * Parsers
 - https://gitlab.com/mopsa/mopsa-analyzer/-/tree/master/parsers/python/src/mopsa_py_parser
 - https://github.com/grievejia/pyre-ast
+
 * Programming examples
 - https://gitlab.inria.fr/skeletons/research/-/tree/master/papers/programming (paper, private)
 - https://gitlab.inria.fr/skeletons/programming-skel (implementation, private)
+
+* Python semantics
+- https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#chapter.6
