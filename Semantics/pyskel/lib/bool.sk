@@ -1,0 +1,8 @@
+type constant =
+  | True
+
+
+val eval (c:constant) : constant =
+  match c with
+  | True -> True
+  end

@@ -1,0 +1,13 @@
+(library
+ (name pyskel)
+ (libraries necroml pyre-ast))
+
+(rule
+  (target bool.ml)
+  (deps bool.sk)
+  (action (run necroml -o %{target} %{deps})))
+
+;; for "unused rec flag" in eval
+(env
+  (dev
+    (flags (:standard -w -39))))

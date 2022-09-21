@@ -1,0 +1,4 @@
+(executable
+ (public_name pyskel)
+ (name main)
+ (libraries pyskel necroml pyre-ast))
