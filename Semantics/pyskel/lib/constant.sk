@@ -1,0 +1,27 @@
+type constant =
+  | True
+  | False
+  | None
+  | NotImplemented
+
+type id<a> = | Id a
+
+val return<a> (v : a) : id<a> = Id<a> v
+val bind<a, b> (o : id<a>) (f : a -> id<b>) : id<b> =
+  match o with
+  | Id v  -> f v
+  end
+
+binder @ := bind
+
+type output := id<constant>
+
+val ret (v : constant) : output = return<constant> v
+
+val eval (c:constant) : output =
+  match c with
+  | True -> ret True
+  | False -> ret False
+  | None -> ret None
+  | NotImplemented -> ret NotImplemented
+  end

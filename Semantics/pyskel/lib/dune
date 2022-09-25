@@ -3,8 +3,8 @@
  (libraries necroml pyre-ast))
 
 (rule
-  (target bool.ml)
-  (deps bool.sk)
+  (target constant.ml)
+  (deps constant.sk)
   (action (run necroml -o %{target} %{deps})))
 
 ;; for "unused rec flag" in eval

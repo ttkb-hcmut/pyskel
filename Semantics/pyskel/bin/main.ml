@@ -3,15 +3,15 @@ open PyreAst
 
 module Inst(M:MONAD) = struct
   module rec Types : sig
-    include Pyskel.Bool_inst.TYPE
+    include Pyskel.Constant_inst.TYPE
   end = Types
 
-  module Spec : Pyskel.Bool.UNSPEC = struct
-    include Pyskel.Bool.Unspec(M)(Types)
-    include Pyskel.Bool_inst.Spec(M)
+  module Spec : Pyskel.Constant.UNSPEC = struct
+    include Pyskel.Constant.Unspec(M)(Types)
+    include Pyskel.Constant_inst.Spec(M)
   end
 
-  module Interpreter : Pyskel.Bool.INTERPRETER = Pyskel.Bool.MakeInterpreter(Spec)
+  module Interpreter : Pyskel.Constant.INTERPRETER = Pyskel.Constant.MakeInterpreter(Spec)
 end
 
 module InterInst = Inst(Necromonads.ContPoly)
@@ -71,8 +71,8 @@ let _ =
   (* Eval file *)
   let ast = translate_ast (Result.get_ok a) in
   begin match M.extract (eval ast) with
-    | True -> Printf.printf "Result is \"True\".\n"
-    | False -> Printf.printf "Result is \"False\".\n"
-    | None -> Printf.printf "Result is \"None\".\n"
-    | NotImplemented -> Printf.printf "Result is \"NotImplemented\".\n"
+    | Id(True) -> Printf.printf "Result is \"True\".\n"
+    | Id(False) -> Printf.printf "Result is \"False\".\n"
+    | Id(None) -> Printf.printf "Result is \"None\".\n"
+    | Id(NotImplemented) -> Printf.printf "Result is \"NotImplemented\".\n"
   end;
