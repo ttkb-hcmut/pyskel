@@ -1,5 +1,0 @@
-# dune init proj pyskel
-# OCAMLPARAM: unset
-# Shared cache: disabled
-# Workspace root: /home/marsu/Documents/Travail/ENS/M1/Projet/pyskel/Semantics
-# Auto-detected concurrency: 8
