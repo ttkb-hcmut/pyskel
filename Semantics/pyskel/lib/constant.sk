@@ -1,27 +1,149 @@
-type constant =
-  | True
-  | False
+(* Simple list type *)
+type list<a> = | Nil | Cons (a, list<a>)
+
+(* Python object *)
+type pythonInt
+type pythonFloat
+type pythonString
+type pythonBool = | True | False
+
+type stmt = | Stmt
+
+type objN =
+  | Int pythonInt
+  | Bool pythonBool
+  | Float pythonFloat
+  | String pythonString
   | None
   | NotImplemented
+  | List list<addr>
+  | Tuple list<addr>
+  | Fun (id, list<id>, list<id>, stmt)
+  | Method (addr, addr)
+  | Class (id, list<id>, id, stmt)
+  | Inst addr
 
-type id<a> = | Id a
+type objS =
+  | Locked
+  | Methods (pythonString -> addr)
 
-val return<a> (v : a) : id<a> = Id<a> v
-val bind<a, b> (o : id<a>) (f : a -> id<b>) : id<b> =
-  match o with
-  | Id v  -> f v
-  end
+type id
+val addr_true : addr
+val addr_false : addr
+val addr_none : addr
+val addr_notImplemented : addr
+
+type addr
+type envData =
+  | Addr addr
+  | LocalUndef
+
+val unboundLocalError : addr
+
+(* Global state of the interpreter *)
+type env
+type heap
+type flag =
+  | Ret
+  | Brk
+  | Cont
+  | Exn addr
+
+val initialEnv : env
+val getEnvData : (env, id) -> envData
+
+val heapAlloc : (heap, (objN, objS)) -> (addr, heap)
+val heapRead : (heap, addr) -> ((objN, objS), heap)
+val heapWrite : (heap, addr, (objN, objS)) -> ((), heap)
+
+val initialHeap : heap
+val initializedHeap (() : ()) : heap =
+  let h = initialHeap in
+  let (_, h) = heapWrite (h, addr_true, (Bool True, Locked)) in
+  let (_, h) = heapWrite (h, addr_false, (Bool False, Locked)) in
+  let (_, h) = heapWrite (h, addr_none, (None, Locked)) in
+  let (_, h) = heapWrite (h, addr_notImplemented, (NotImplemented, Locked)) in
+  h
+
+
+(* Evaluation Monad *)
+type s := (env, heap)
+
+type exn<a> =
+  | Cur a
+  | Flag flag
+
+type m<a> := s -> (exn<a>, s)
+
+val return<a> (v : a) : m<a> =
+  \s:s -> (Cur<a> v, s)
+val bind<a, b> (o : m<a>) (f : a -> m<b>) : m<b> =
+  \s:s ->
+    let (a, s') = o s in
+    match a with
+    | Cur a ->
+      let fas = f a in
+      fas s'
+    | Flag f ->
+      (Flag<b> f, s')
+    end
+
+(* Useful functions *)
+val get : m<s> =
+  \s:s -> (Cur<s> s, s)
+
+val gets<a> (f : s -> a) : m<a> =
+  \s:s -> let a = f s in (Cur<a> a, s)
+
+val put (s: s) : m<()> =
+  \_:s -> (Cur<()> (), s)
+
+val modify (f: s -> s) : m<()> =
+  \s:s -> let s' = f s in (Cur<()> (), s')
+
+val setFlag<a> (f: flag) : m<a> =
+  \s:s -> (Flag<a> f, s)
 
 binder @ := bind
 
-type output := id<constant>
+type output := m<addr>
+val ret (v : addr) : output = return<addr> v
 
-val ret (v : constant) : output = return<constant> v
 
-val eval (c:constant) : output =
+(* State manipulation *)
+val alloc (v:(objN, objS)) : m<addr> =
+  let (e, h) =@ get in
+  let (a, h') = heapAlloc (h, v) in
+  let _ =@ put (e, h') in
+  ret a
+
+val read (a:addr) : m<(objN, objS)> =
+  let (e, h) =@ get in
+  let (v, h') = heapRead (h, a) in
+  let _ =@ put (e, h') in
+  return<(objN, objS)> v
+
+val write (a:addr) (v:(objN, objS)) : m<()> =
+  let (e, h) =@ get in
+  let (_, h') = heapWrite (h, a, v) in
+  let _ =@ put (e, h') in
+  return<()> ()
+
+val readEnv (id:id) : m<addr> =
+  let (e, _) =@ get in
+  let r = getEnvData (e, id) in
+  match r with
+  | LocalUndef -> setFlag<addr> (Exn unboundLocalError)
+  | Addr a -> ret a
+  end
+
+val eval (c:objN) : output =
   match c with
-  | True -> ret True
-  | False -> ret False
-  | None -> ret None
-  | NotImplemented -> ret NotImplemented
+  | Bool True -> ret addr_true
+  | Bool False -> ret addr_false
+  | None -> ret addr_none
+  | NotImplemented -> ret addr_notImplemented
+  | Int n -> alloc (Int n, Locked)
+  | String s -> alloc (String s, Locked)
+  | _ -> setFlag<addr> Brk
   end

@@ -4,11 +4,18 @@ open PyreAst
 module Inst(M:MONAD) = struct
   module rec Types : sig
     include Pyskel.Constant_inst.TYPE
+    include Pyskel.Heap_inst.TYPE
+      with type value = Pyskel.Constant.Unspec(M)(Types).objN *
+                        Pyskel.Constant.Unspec(M)(Types).objS
+    include Pyskel.Env_inst.TYPE
+      with type envData = Pyskel.Constant.Unspec(M)(Types).envData
   end = Types
 
-  module Spec : Pyskel.Constant.UNSPEC = struct
+  module rec Spec : Pyskel.Constant.UNSPEC = struct
     include Pyskel.Constant.Unspec(M)(Types)
     include Pyskel.Constant_inst.Spec(M)
+    include Pyskel.Env_inst.Spec(M)
+    include Pyskel.Heap_inst.Spec(M)
   end
 
   module Interpreter : Pyskel.Constant.INTERPRETER = Pyskel.Constant.MakeInterpreter(Spec)
@@ -18,18 +25,18 @@ module InterInst = Inst(Necromonads.ContPoly)
 
 open InterInst.Interpreter
 
-let translate_ast (m: Concrete.Module.t) : constant =
+let translate_ast (m: Concrete.Module.t) : objN =
   match m with
   | {Concrete.Module.body =
        [Concrete.Statement.Expr
           {value = Concrete.Expression.Constant
                {value = Concrete.Constant.True; _}; _}]; _} ->
-    True
+    Bool True
   | {Concrete.Module.body =
        [Concrete.Statement.Expr
           {value = Concrete.Expression.Constant
                {value = Concrete.Constant.False; _}; _}]; _} ->
-    False
+    Bool False
   | {Concrete.Module.body =
        [Concrete.Statement.Expr
           {value = Concrete.Expression.Constant
@@ -40,6 +47,16 @@ let translate_ast (m: Concrete.Module.t) : constant =
           {value = Concrete.Expression.Name {id = s; _}; _}]; _}
     when Concrete.Identifier.to_string s = "NotImplemented" ->
     NotImplemented
+  | {Concrete.Module.body =
+       [Concrete.Statement.Expr
+          {value = Concrete.Expression.Constant
+               {value = Concrete.Constant.Integer n; _}; _}]; _} ->
+    Int(Obj.magic n)
+  | {Concrete.Module.body =
+       [Concrete.Statement.Expr
+          {value = Concrete.Expression.Constant
+               {value = Concrete.Constant.String s; _}; _}]; _} ->
+    String(Obj.magic s)
   | _ -> failwith "Not specified yet"
 
 
@@ -70,9 +87,17 @@ let _ =
 
   (* Eval file *)
   let ast = translate_ast (Result.get_ok a) in
-  begin match M.extract (eval ast) with
-    | Id(True) -> Printf.printf "Result is \"True\".\n"
-    | Id(False) -> Printf.printf "Result is \"False\".\n"
-    | Id(None) -> Printf.printf "Result is \"None\".\n"
-    | Id(NotImplemented) -> Printf.printf "Result is \"NotImplemented\".\n"
-  end;
+  let fs = M.extract (eval ast) in
+  match M.extract (fs (initialEnv, M.extract @@ initializedHeap ())) with
+  | (Flag _, _) -> Printf.printf "Error, result is not Cur.\n"
+  | (Cur v, (_, heap)) -> begin
+      (* Read the objN from heap *)
+      match fst @@ fst @@ M.extract @@ heapRead (heap, v) with
+      | Bool True -> Printf.printf "Result is \"True\".\n"
+      | Bool False -> Printf.printf "Result is \"False\".\n"
+      | None -> Printf.printf "Result is \"None\".\n"
+      | NotImplemented -> Printf.printf "Result is \"NotImplemented\".\n"
+      | Int n -> Printf.printf "Result is \"Integer : %d\"\n" (Obj.magic n)
+      | String s -> Printf.printf "Result is \"String : '%s'\"\n" (Obj.magic s)
+      | _ -> Printf.printf "Not able to understand your program yet"
+    end

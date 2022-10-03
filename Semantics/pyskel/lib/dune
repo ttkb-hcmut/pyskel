@@ -10,4 +10,4 @@
 ;; for "unused rec flag" in eval
 (env
   (dev
-    (flags (:standard -w -39))))
+    (flags (:standard -w -39) (:standard -w -27))))
