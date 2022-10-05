@@ -28,10 +28,8 @@ type objS =
   | Methods (pythonString -> addr)
 
 type id
-val addr_true : addr
-val addr_false : addr
-val addr_none : addr
-val addr_notImplemented : addr
+
+type r = (true: addr, false: addr, none: addr, notImplemented: addr)
 
 type addr
 type envData =
@@ -57,13 +55,13 @@ val heapRead : (heap, addr) -> ((objN, objS), heap)
 val heapWrite : (heap, addr, (objN, objS)) -> ((), heap)
 
 val initialHeap : heap
-val initializedHeap (() : ()) : heap =
+val initializedHeap (() : ()) : (r, heap) =
   let h = initialHeap in
-  let (_, h) = heapWrite (h, addr_true, (Bool True, Locked)) in
-  let (_, h) = heapWrite (h, addr_false, (Bool False, Locked)) in
-  let (_, h) = heapWrite (h, addr_none, (None, Locked)) in
-  let (_, h) = heapWrite (h, addr_notImplemented, (NotImplemented, Locked)) in
-  h
+  let (true, h) = heapAlloc (h, (Bool True, Locked)) in
+  let (false, h) = heapAlloc (h, (Bool False, Locked)) in
+  let (none, h) = heapAlloc (h, (None, Locked)) in
+  let (notImplemented, h) = heapAlloc (h, (NotImplemented, Locked)) in
+  ((true = true, false = false, none = none, notImplemented = notImplemented), h)
 
 
 (* Evaluation Monad *)
@@ -73,36 +71,38 @@ type exn<a> =
   | Cur a
   | Flag flag
 
-type m<a> := s -> (exn<a>, s)
+type m<a> := r -> s -> (exn<a>, s)
 
 val return<a> (v : a) : m<a> =
-  \s:s -> (Cur<a> v, s)
+  \_:r -> \s:s -> (Cur<a> v, s)
 val bind<a, b> (o : m<a>) (f : a -> m<b>) : m<b> =
-  \s:s ->
-    let (a, s') = o s in
+  \r:r -> \s:s ->
+    let (a, s') = o r s in
     match a with
     | Cur a ->
-      let fas = f a in
-      fas s'
+      f a r s'
     | Flag f ->
       (Flag<b> f, s')
     end
 
 (* Useful functions *)
+val ask : m<r> =
+  \r:r -> \s:s -> (Cur<r> r, s)
+
 val get : m<s> =
-  \s:s -> (Cur<s> s, s)
+  \_:r -> \s:s -> (Cur<s> s, s)
 
 val gets<a> (f : s -> a) : m<a> =
-  \s:s -> let a = f s in (Cur<a> a, s)
+  \_:r -> \s:s -> let a = f s in (Cur<a> a, s)
 
 val put (s: s) : m<()> =
-  \_:s -> (Cur<()> (), s)
+  \_:r -> \_:s -> (Cur<()> (), s)
 
 val modify (f: s -> s) : m<()> =
-  \s:s -> let s' = f s in (Cur<()> (), s')
+  \_:r -> \s:s -> let s' = f s in (Cur<()> (), s')
 
 val setFlag<a> (f: flag) : m<a> =
-  \s:s -> (Flag<a> f, s)
+  \_:r -> \s:s -> (Flag<a> f, s)
 
 binder @ := bind
 
@@ -138,11 +138,12 @@ val readEnv (id:id) : m<addr> =
   end
 
 val eval (c:objN) : output =
+  let builtins =@ ask in
   match c with
-  | Bool True -> ret addr_true
-  | Bool False -> ret addr_false
-  | None -> ret addr_none
-  | NotImplemented -> ret addr_notImplemented
+  | Bool True -> ret builtins.true
+  | Bool False -> ret builtins.false
+  | None -> ret builtins.none
+  | NotImplemented -> ret builtins.notImplemented
   | Int n -> alloc (Int n, Locked)
   | String s -> alloc (String s, Locked)
   | _ -> setFlag<addr> Brk

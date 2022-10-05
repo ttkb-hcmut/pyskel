@@ -11,14 +11,14 @@ module Inst(M:MONAD) = struct
       with type envData = Pyskel.Constant.Unspec(M)(Types).envData
   end = Types
 
-  module rec Spec : Pyskel.Constant.UNSPEC = struct
+  module Spec = struct
     include Pyskel.Constant.Unspec(M)(Types)
     include Pyskel.Constant_inst.Spec(M)
     include Pyskel.Env_inst.Spec(M)
     include Pyskel.Heap_inst.Spec(M)
   end
 
-  module Interpreter : Pyskel.Constant.INTERPRETER = Pyskel.Constant.MakeInterpreter(Spec)
+  module Interpreter = Pyskel.Constant.MakeInterpreter(Spec)
 end
 
 module InterInst = Inst(Necromonads.ContPoly)
@@ -51,12 +51,12 @@ let translate_ast (m: Concrete.Module.t) : objN =
        [Concrete.Statement.Expr
           {value = Concrete.Expression.Constant
                {value = Concrete.Constant.Integer n; _}; _}]; _} ->
-    Int(Obj.magic n)
+    Int n
   | {Concrete.Module.body =
        [Concrete.Statement.Expr
           {value = Concrete.Expression.Constant
                {value = Concrete.Constant.String s; _}; _}]; _} ->
-    String(Obj.magic s)
+    String s
   | _ -> failwith "Not specified yet"
 
 
@@ -83,12 +83,14 @@ let _ =
     (fun Parser.Error.{message; line; column; _} ->
        Printf.fprintf stderr "Syntax error at (line %d, column %d):\n\t%s\n" line column message;
        exit 1;
+
     ) a;
 
   (* Eval file *)
   let ast = translate_ast (Result.get_ok a) in
   let fs = M.extract (eval ast) in
-  match M.extract (fs (initialEnv, M.extract @@ initializedHeap ())) with
+  let (builtins, heap) = M.extract @@ initializedHeap () in
+  match M.extract @@ M.extract (fs builtins) @@ (initialEnv, heap) with
   | (Flag _, _) -> Printf.printf "Error, result is not Cur.\n"
   | (Cur v, (_, heap)) -> begin
       (* Read the objN from heap *)
@@ -97,7 +99,7 @@ let _ =
       | Bool False -> Printf.printf "Result is \"False\".\n"
       | None -> Printf.printf "Result is \"None\".\n"
       | NotImplemented -> Printf.printf "Result is \"NotImplemented\".\n"
-      | Int n -> Printf.printf "Result is \"Integer : %d\"\n" (Obj.magic n)
-      | String s -> Printf.printf "Result is \"String : '%s'\"\n" (Obj.magic s)
+      | Int n -> Printf.printf "Result is \"Integer : %d\"\n" n
+      | String s -> Printf.printf "Result is \"String : '%s'\"\n" s
       | _ -> Printf.printf "Not able to understand your program yet"
     end

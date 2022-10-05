@@ -9,12 +9,7 @@ module type TYPE = sig
 end
 
 module Spec (M:MONAD) = struct
-  let addr_true = 0
-  let addr_false = 1
-  let addr_none = 2
-  let addr_notImplemented = 3
-
-  let initialHeap = (IMap.empty, 4)
+  let initialHeap = (IMap.empty, 0)
 
   let heapAlloc ((h, i), v) =
     M.ret (i, (IMap.add i v h, i + 1))

@@ -3,7 +3,7 @@ open Necromonads
 module IMap = Map.Make(Int)
 
 module type TYPE = sig
-  type pythonInt = Int.t
+  type pythonInt = int
   type pythonFloat = float
   type pythonString = string
 
