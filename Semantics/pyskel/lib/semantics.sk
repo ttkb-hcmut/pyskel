@@ -1,18 +1,35 @@
-(* Simple list type *)
+(* Useful types *)
 type list<a> = | Nil | Cons (a, list<a>)
+type maybe<a> = | Nothing | Just a
 
-(* Python object *)
+(* Python ast *)
+(* see https://github.com/grievejia/pyre-ast/blob/trunk/lib/concrete.ml *)
+
 type pythonInt
-type pythonFloat
 type pythonString
 type pythonBool = | True | False
 
-type stmt = | Stmt
 
+type stmt =
+  | SExpr expr
+  | SAssign (id, expr)
+
+type constant =
+  | CNone
+  | CBool pythonBool
+  | CInt pythonInt
+  | CString pythonString
+
+type id
+
+type expr =
+  | Constant constant
+  | Name id
+
+(* Python object *)
 type objN =
   | Int pythonInt
   | Bool pythonBool
-  | Float pythonFloat
   | String pythonString
   | None
   | NotImplemented
@@ -27,14 +44,9 @@ type objS =
   | Locked
   | Methods (pythonString -> addr)
 
-type id
-
 type r = (true: addr, false: addr, none: addr, notImplemented: addr)
 
 type addr
-type envData =
-  | Addr addr
-  | LocalUndef
 
 val unboundLocalError : addr
 
@@ -48,7 +60,8 @@ type flag =
   | Exn addr
 
 val initialEnv : env
-val getEnvData : (env, id) -> envData
+val getEnvData : (env, id) -> maybe<addr>
+val envWrite : (env, id, maybe<addr>) -> env
 
 val heapAlloc : (heap, (objN, objS)) -> (addr, heap)
 val heapRead : (heap, addr) -> ((objN, objS), heap)
@@ -106,8 +119,7 @@ val setFlag<a> (f: flag) : m<a> =
 
 binder @ := bind
 
-type output := m<addr>
-val ret (v : addr) : output = return<addr> v
+val ret (v : addr) : m<addr> = return<addr> v
 
 
 (* State manipulation *)
@@ -126,25 +138,45 @@ val read (a:addr) : m<(objN, objS)> =
 val write (a:addr) (v:(objN, objS)) : m<()> =
   let (e, h) =@ get in
   let (_, h') = heapWrite (h, a, v) in
-  let _ =@ put (e, h') in
-  return<()> ()
+  put (e, h')
 
 val readEnv (id:id) : m<addr> =
   let (e, _) =@ get in
   let r = getEnvData (e, id) in
   match r with
-  | LocalUndef -> setFlag<addr> (Exn unboundLocalError)
-  | Addr a -> ret a
+  | Nothing -> setFlag<addr> (Exn unboundLocalError)
+  | Just a -> ret a
   end
 
-val eval (c:objN) : output =
+val writeEnv (id:id) (a:addr) : m<()> =
+  let (e, h) =@ get in
+  let e' = envWrite (e, id, Just<addr> a) in
+  put (e', h)
+
+val eval_stmt (s:stmt) : m<()> =
+  match s with
+  | SExpr e ->
+      let _ =@ eval_expr e
+	  in return<()> ()
+  | SAssign (x, v) ->
+    let addr =@ eval_expr v in
+    writeEnv x addr
+  end
+
+val eval_expr (e:expr) : m<addr> =
+  match e with
+  | Constant constant -> eval_constant constant
+  | Name id ->
+      let builtins =@ ask in
+      ret builtins.true
+  end
+
+val eval_constant (c:constant) : m<addr> =
   let builtins =@ ask in
   match c with
-  | Bool True -> ret builtins.true
-  | Bool False -> ret builtins.false
-  | None -> ret builtins.none
-  | NotImplemented -> ret builtins.notImplemented
-  | Int n -> alloc (Int n, Locked)
-  | String s -> alloc (String s, Locked)
-  | _ -> setFlag<addr> Brk
+  | CBool True -> ret builtins.true
+  | CBool False -> ret builtins.false
+  | CNone -> ret builtins.none
+  | CInt n -> alloc (Int n, Locked)
+  | CString s -> alloc (String s, Locked)
   end

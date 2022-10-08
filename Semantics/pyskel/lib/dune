@@ -3,9 +3,9 @@
  (libraries necroml pyre-ast))
 
 (rule
-  (target constant.ml)
-  (deps constant.sk)
-  (action (run necroml -o %{target} %{deps})))
+  (target semantics.ml)
+  (deps semantics.sk)
+  (action (run necroml -o %{target} -d %{deps})))
 
 ;; for "unused rec flag" in eval
 (env

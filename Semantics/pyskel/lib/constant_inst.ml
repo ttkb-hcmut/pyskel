@@ -4,7 +4,6 @@ module IMap = Map.Make(Int)
 
 module type TYPE = sig
   type pythonInt = int
-  type pythonFloat = float
   type pythonString = string
 
   type env = unit
