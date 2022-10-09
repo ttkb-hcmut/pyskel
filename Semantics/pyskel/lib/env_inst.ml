@@ -17,4 +17,7 @@ module Spec (M:MONAD) = struct
 
   let envWrite (e, id, addr) =
     M.ret (SMap.add id addr e)
+
+  let envDelete (e, id) =
+    M.ret (SMap.remove id e)
 end

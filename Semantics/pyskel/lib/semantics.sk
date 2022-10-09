@@ -13,6 +13,7 @@ type pythonBool = | True | False
 type stmt =
   | SExpr expr
   | SAssign (id, expr)
+  | SDel id
 
 type constant =
   | CNone
@@ -62,6 +63,7 @@ type flag =
 val initialEnv : env
 val getEnvData : (env, id) -> maybe<addr>
 val envWrite : (env, id, maybe<addr>) -> env
+val envDelete : (env, id) -> env
 
 val heapAlloc : (heap, (objN, objS)) -> (addr, heap)
 val heapRead : (heap, addr) -> ((objN, objS), heap)
@@ -153,6 +155,11 @@ val writeEnv (id:id) (a:addr) : m<()> =
   let e' = envWrite (e, id, Just<addr> a) in
   put (e', h)
 
+val deleteEnv (id:id) : m<()> =
+  let (e, h) =@ get in
+  let e' = envDelete (e, id) in
+  put (e', h)
+
 val eval_stmt (s:stmt) : m<()> =
   match s with
   | SExpr e ->
@@ -161,14 +168,13 @@ val eval_stmt (s:stmt) : m<()> =
   | SAssign (x, v) ->
     let addr =@ eval_expr v in
     writeEnv x addr
+  | SDel id -> deleteEnv id
   end
 
 val eval_expr (e:expr) : m<addr> =
   match e with
   | Constant constant -> eval_constant constant
-  | Name id ->
-      let builtins =@ ask in
-      ret builtins.true
+  | Name id -> readEnv id
   end
 
 val eval_constant (c:constant) : m<addr> =

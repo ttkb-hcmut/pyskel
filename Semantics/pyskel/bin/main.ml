@@ -54,6 +54,11 @@ let translate_ast (m: Concrete.Module.t) : stmt =
            targets = Concrete.Expression.Name {id = x; _} :: _ ;
            value = e; _}]; _} ->
     SAssign(Concrete.Identifier.to_string x, translate_expr e)
+  | {Concrete.Module.body =
+       [Concrete.Statement.Delete {
+           targets = Concrete.Expression.Name {id = x; _} :: _
+         ; _}]; _} ->
+    SDel(Concrete.Identifier.to_string x)
   | _ -> failwith "statement not specified yet"
 
 
