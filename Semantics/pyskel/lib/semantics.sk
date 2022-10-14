@@ -28,6 +28,7 @@ type expr =
   | Name id
 
 (* Python object *)
+(* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.65 *)
 type objN =
   | Int pythonInt
   | Bool pythonBool
@@ -45,6 +46,7 @@ type objS =
   | Locked
   | Methods (pythonString -> addr)
 
+(* Read-only state, contains builtins *)
 type r = (true: addr, false: addr, none: addr, notImplemented: addr)
 
 type addr
@@ -86,6 +88,7 @@ type exn<a> =
   | Cur a
   | Flag flag
 
+(* Evaluation monad :: Reader r (State s (Except exn a)))
 type m<a> := r -> s -> (exn<a>, s)
 
 val return<a> (v : a) : m<a> =
@@ -100,7 +103,7 @@ val bind<a, b> (o : m<a>) (f : a -> m<b>) : m<b> =
       (Flag<b> f, s')
     end
 
-(* Useful functions *)
+(* Useful functions, state manipulation *)
 val ask : m<r> =
   \r:r -> \s:s -> (Cur<r> r, s)
 
@@ -123,8 +126,7 @@ binder @ := bind
 
 val ret (v : addr) : m<addr> = return<addr> v
 
-
-(* State manipulation *)
+(* Read and Modify state *)
 val alloc (v:(objN, objS)) : m<addr> =
   let (e, h) =@ get in
   let (a, h') = heapAlloc (h, v) in
@@ -160,11 +162,13 @@ val deleteEnv (id:id) : m<()> =
   let e' = envDelete (e, id) in
   put (e', h)
 
+(* Evaluation rules *)
 val eval_stmt (s:stmt) : m<()> =
   match s with
   | SExpr e ->
       let _ =@ eval_expr e
 	  in return<()> ()
+  (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.71 *)
   | SAssign (x, v) ->
     let addr =@ eval_expr v in
     writeEnv x addr
@@ -173,13 +177,16 @@ val eval_stmt (s:stmt) : m<()> =
 
 val eval_expr (e:expr) : m<addr> =
   match e with
+  (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.70 *)
   | Constant constant -> eval_constant constant
+  (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.71 *)
   | Name id -> readEnv id
   end
 
 val eval_constant (c:constant) : m<addr> =
   let builtins =@ ask in
   match c with
+  (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.70 *)
   | CBool True -> ret builtins.true
   | CBool False -> ret builtins.false
   | CNone -> ret builtins.none
