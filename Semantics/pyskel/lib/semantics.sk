@@ -88,7 +88,7 @@ type exn<a> =
   | Cur a
   | Flag flag
 
-(* Evaluation monad :: Reader r (State s (Except exn a)))
+(* Evaluation monad :: Reader r (State s (Except exn a)) *)
 type m<a> := r -> s -> (exn<a>, s)
 
 val return<a> (v : a) : m<a> =
