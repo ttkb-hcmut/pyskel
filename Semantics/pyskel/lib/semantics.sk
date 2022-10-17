@@ -14,6 +14,7 @@ type stmt =
   | SExpr expr
   | SAssign (id, expr)
   | SDel id
+  | SFunctionDef (id, list<id>, list<stmt>)
 
 type constant =
   | CNone
@@ -37,7 +38,8 @@ type objN =
   | NotImplemented
   | List list<addr>
   | Tuple list<addr>
-  | Fun (id, list<id>, list<id>, stmt)
+  (* Fun (name, args, locals, body) *)
+  | Fun (id, list<id>, list<id>, list<stmt>)
   | Method (addr, addr)
   | Class (id, list<id>, id, stmt)
   | Inst addr
@@ -162,6 +164,16 @@ val deleteEnv (id:id) : m<()> =
   let e' = envDelete (e, id) in
   put (e', h)
 
+(* Semantics related functions *)
+val locals (ss : list<stmt>) : list<id> =
+  match ss with
+  | Nil -> Nil<id>
+  | Cons(SAssign(x, _), ss') ->
+    let tail = locals ss' in
+    Cons<id>(x, tail)
+  | Cons(_, ss') -> locals ss'
+  end
+
 (* Evaluation rules *)
 val eval_stmt (s:stmt) : m<()> =
   match s with
@@ -173,6 +185,12 @@ val eval_stmt (s:stmt) : m<()> =
     let addr =@ eval_expr v in
     writeEnv x addr
   | SDel id -> deleteEnv id
+  (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.115 *)
+  | SFunctionDef (name, args, body) ->
+    let bodyLocals = locals body in
+    let f = Fun(name, args, bodyLocals, body) in
+    let addr =@ alloc (f, Locked) in
+	writeEnv name addr
   end
 
 val eval_expr (e:expr) : m<addr> =
