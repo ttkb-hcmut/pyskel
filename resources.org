@@ -8,3 +8,4 @@
 
 * Python semantics
 - https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#chapter.6
+- [[https://gitlab.com/mopsa/mopsa-analyzer/-/blob/master/share/mopsa/stubs/python/stdlib.py]]
