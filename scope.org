@@ -1,17 +1,17 @@
 #+title: Scope in Python
 
 #+begin_src python :results output
-  def foo():
-      def bar():
-          def baz():
-              nonlocal x
-              x = x + 1
-          baz()
-          print(x)
-      x = 1
-      print(x)
-      bar()
-  foo()
+def foo():
+    def bar():
+        def baz():
+            nonlocal x
+            x = x + 1
+        baz()
+        print(x)
+    x = 1
+    print(x)
+    bar()
+foo()
 #+end_src
 
 #+RESULTS:
