@@ -1,2 +1,4 @@
 (test
- (name pyskel))
+ (name pyskel)
+ (deps test.py)
+ (libraries pyskel necroml pyre-ast))

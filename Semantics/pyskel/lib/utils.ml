@@ -35,7 +35,7 @@ let rec to_standard_list (l : 'a list) : 'a Stdlib.List.t =
   | Cons(h, t) -> h :: (to_standard_list t)
 
 
-let translate_expr (e: Concrete.Expression.t) : expr =
+let rec translate_expr (e: Concrete.Expression.t) : expr =
   match e with
   | Concrete.Expression.Constant {value = Concrete.Constant.True; _} ->
     Constant (CBool True)
@@ -49,6 +49,8 @@ let translate_expr (e: Concrete.Expression.t) : expr =
     Constant (CInt n)
   | Concrete.Expression.Constant {value = Concrete.Constant.String s; _} ->
     Constant (CString s)
+  | Concrete.Expression.Call {func = f; args = args; _} ->
+    Call(translate_expr f, to_pyskel_list @@ Stdlib.List.map translate_expr args)
   | _ -> failwith "Not specified yet"
 
 let translate_argument ({identifier = id; _} : Concrete.Argument.t)
@@ -86,7 +88,6 @@ let rec translate_stmt (s : Concrete.Statement.t) : stmt =
   | _ -> failwith "statement not specified yet"
 
 
-let translate_ast (m: Concrete.Module.t) : stmt =
+let translate_ast (m: Concrete.Module.t) : stmt list =
   match m with
-  | {Concrete.Module.body = [stmt]; _} -> translate_stmt stmt
-  | _ -> failwith "Multiple statements are not supported."
+  | {Concrete.Module.body = stmts; _} -> to_pyskel_list @@ Stdlib.List.map translate_stmt stmts

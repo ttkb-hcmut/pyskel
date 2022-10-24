@@ -27,6 +27,7 @@ type id
 type expr =
   | Constant constant
   | Name id
+  | Call (expr, list<expr>)
 
 (* Python object *)
 (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.65 *)
@@ -105,6 +106,30 @@ val bind<a, b> (o : m<a>) (f : a -> m<b>) : m<b> =
       (Flag<b> f, s')
     end
 
+binder @ := bind
+
+val ret (v : addr) : m<addr> = return<addr> v
+
+(* General monadic functions *)
+val mapM<a, b> (f : a -> m<b>) (l : list<a>) : m<list<b>> =
+  match l with
+  | Nil -> return<list<b>> Nil<b>
+  | Cons(h, t) ->
+    let mh =@ f h in
+    let mt =@ mapM<a, b> f t in
+    return<list<b>> (Cons<b>(mh, mt))
+  end
+
+val zipWithM<a, b, c> (f : a -> b -> m<c>) (la : list<a>) (lb : list<b>) : m<list<c>> =
+  match (la, lb) with
+  | (Nil, _) -> return<list<c>> Nil<c>
+  | (_, Nil) -> return<list<c>> Nil<c>
+  | (Cons(ha, ta), Cons(hb, tb)) ->
+    let mh =@ f ha hb in
+    let mt =@ zipWithM<a, b, c> f ta tb in
+    return<list<c>> (Cons<c>(mh, mt))
+  end
+
 (* Useful functions, state manipulation *)
 val ask : m<r> =
   \r:r -> \s:s -> (Cur<r> r, s)
@@ -124,9 +149,6 @@ val modify (f: s -> s) : m<()> =
 val setFlag<a> (f: flag) : m<a> =
   \_:r -> \s:s -> (Flag<a> f, s)
 
-binder @ := bind
-
-val ret (v : addr) : m<addr> = return<addr> v
 
 (* Read and Modify state *)
 val alloc (v:(objN, objS)) : m<addr> =
@@ -174,6 +196,10 @@ val locals (ss : list<stmt>) : list<id> =
   | Cons(_, ss') -> locals ss'
   end
 
+val eval_stmts (ss:list<stmt>) : m<()> =
+  let _ =@ mapM<stmt, ()> eval_stmt ss in
+  return<()> ()
+
 (* Evaluation rules *)
 val eval_stmt (s:stmt) : m<()> =
   match s with
@@ -190,7 +216,7 @@ val eval_stmt (s:stmt) : m<()> =
     let bodyLocals = locals body in
     let f = Fun(name, args, bodyLocals, body) in
     let addr =@ alloc (f, Locked) in
-	writeEnv name addr
+	  writeEnv name addr
   end
 
 val eval_expr (e:expr) : m<addr> =
@@ -199,6 +225,15 @@ val eval_expr (e:expr) : m<addr> =
   | Constant constant -> eval_constant constant
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.71 *)
   | Name id -> readEnv id
+  (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.121 *)
+  | Call(e_c, args) ->
+    let at_c =@ eval_expr e_c in
+    let (Fun(_, a, loc, body), _) =@ read at_c in
+    let at_args =@ mapM<expr, addr> eval_expr args in
+    let _ =@ zipWithM<id, addr, ()> writeEnv a at_args in
+    let _ =@ eval_stmts body in
+    let builtins =@ ask in
+    ret builtins.none
   end
 
 val eval_constant (c:constant) : m<addr> =

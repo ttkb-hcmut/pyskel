@@ -30,7 +30,7 @@ let _ =
 
   (* Eval file *)
   let ast = Utils.translate_ast (Result.get_ok a) in
-  let fs = M.extract (eval_stmt ast) in
+  let fs = M.extract (eval_stmts ast) in
   let (builtins, heap) = M.extract @@ initializedHeap () in
   match M.extract @@ M.extract (fs builtins) @@ (initialEnv, heap) with
   | (Flag _, _) -> Printf.printf "Error, result is not Cur.\n"
