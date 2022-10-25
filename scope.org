@@ -1,5 +1,6 @@
 #+title: Scope in Python
 
+* Nonlocal
 #+begin_src python :results output
 def foo():
     def bar():
@@ -17,3 +18,18 @@ foo()
 #+RESULTS:
 : 1
 : 2
+
+* interacting through finished functions
+#+begin_src python :results output
+def foo():
+    x = 0
+    def incr():
+        nonlocal x
+        x = x + 1
+        print(x)
+    def reset():
+        nonlocal x
+        x = 0
+        print(x)
+    return (incr,reset)
+#+end_src
