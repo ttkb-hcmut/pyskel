@@ -21,5 +21,5 @@ module Spec (M:MONAD) = struct
     M.ret ((), (IMap.add a v h, i))
 
   (* Arbitrary *)
-  let unboundLocalError = 42
+  let todoError = 42
 end

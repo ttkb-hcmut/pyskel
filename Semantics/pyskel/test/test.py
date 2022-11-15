@@ -1,4 +1,9 @@
-def f():
-    4
+x = 42
 
-__result__ = f()
+def f(x):
+    x = x
+    return x
+
+x = f(x)
+
+__result__ = x

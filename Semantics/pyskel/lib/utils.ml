@@ -4,18 +4,16 @@ open PyreAst
 module Inst(M:MONAD) = struct
   module rec Types : sig
     include Constant_inst.TYPE
-    include Env_inst.TYPE
-      with type 'a maybe = 'a Semantics.Unspec(M)(Types).maybe
-       and type addr = Semantics.Unspec(M)(Types).addr
     include Heap_inst.TYPE
       with type value = Semantics.Unspec(M)(Types).objN *
                         Semantics.Unspec(M)(Types).objS
+    include Map_inst.TYPE
   end = Types
 
   module Spec = struct
     include Semantics.Unspec(M)(Types)
     include Constant_inst.Spec(M)
-    include Env_inst.Spec(M)
+    include Map_inst.Spec(M)
     include Heap_inst.Spec(M)
   end
 
@@ -73,6 +71,8 @@ let rec translate_stmt (s : Concrete.Statement.t) : stmt =
       targets = Concrete.Expression.Name {id = x; _} :: _
     ; _} ->
     SDel(Concrete.Identifier.to_string x)
+  | Concrete.Statement.Return {value = Some e; _} ->
+    SReturn (translate_expr e)
   | Concrete.Statement.FunctionDef {
       name = name;
       args = args;

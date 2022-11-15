@@ -2,6 +2,13 @@ open PyreAst
 open Pyskel.Utils.InterInst.Interpreter
 module Utils = Pyskel.Utils
 
+let print_flag flag =
+  match flag with
+  | Ret _ -> Printf.printf "Flag is %s\n" "Ret"
+  | Brk -> Printf.printf "Flag is %s\n" "Brk"
+  | Cont -> Printf.printf "Flag is %s\n" "Cont"
+  | Exn _ -> Printf.printf "Flag is %s\n" "Exn"
+
 let _ =
   (* Read file name from command line args *)
   let file_name = "test.py" in
@@ -27,10 +34,18 @@ let _ =
   let ast = Utils.translate_ast (Result.get_ok a) in
   let fs = M.extract (eval_stmts ast) in
   let (builtins, heap) = M.extract @@ initializedHeap () in
-  match M.extract @@ M.extract (fs builtins) @@ (initialEnv, heap) with
-  | (Flag _, _) -> Printf.printf "Error, result is not Cur.\n"
-  | (Cur (), (env, heap)) -> begin
-      match M.extract @@ getEnvData (env, "__result__") with
+  match M.extract (fs (builtins,
+    { global_scope = initialEnv
+    ; local_scope = Just
+          { scope_up = Nothing
+          ; mapping = map_empty
+          }
+    ; heap = heap})) with
+  | (Flag f, _) ->
+    Printf.printf "Error, result is not Cur.\n";
+    print_flag f
+  | (Cur (), {global_scope = env; heap = heap; _}) -> begin
+      match  M.extract @@ map_lookup ("__result__", env) with
       | Nothing -> failwith "var `__result__` is not defined."
       | Just addr -> begin
           (* Read the objN from heap *)

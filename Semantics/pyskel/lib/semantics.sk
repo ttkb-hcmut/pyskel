@@ -1,10 +1,54 @@
 (* Useful types *)
 type list<a> = | Nil | Cons (a, list<a>)
+
+val foldl<a, b> ((f, acc, l): ((b, a) -> b, b, list<a>)) : b =
+  match l with
+  | Nil -> acc
+  | Cons(h, t) ->
+    let acc' = f (acc, h) in
+    foldl<a, b> (f, acc', t)
+  end
+
+val zip<a, b> ((l1, l2): (list<a>, list<b>)) : list<(a, b)> =
+  match (l1, l2) with
+  | (Nil, _) -> Nil<(a, b)>
+  | (_, Nil) -> Nil<(a, b)>
+  | (Cons(h1, t1), Cons(h2, t2)) ->
+    let t = zip<a, b> (t1, t2) in
+    Cons<(a, b)>((h1, h2), t)
+  end
+
+val append<a> ((l1, l2): (list<a>, list<a>)) : list<a> =
+  match l1 with
+  | Nil -> l2
+  | Cons(h1, t1) ->
+    let t = append<a> (t1, l2) in
+    Cons<a>(h1, t)
+  end
+
 type maybe<a> = | Nothing | Just a
+
+(* General String map *)
+type id
+type pbool = | PTrue | PFalse
+
+type map<_>
+val map_empty<a> : map<a>
+val map_elem<a> : (id, map<a>) -> pbool
+val map_find<a> : (id, map<a>) -> a
+val map_insert<a> : (id, a, map<a>) -> map<a> val map_del<a> : (id, map<a>) -> map<a>
+
+val map_lookup<a> ((s, m) : (id, map<a>)) : maybe<a> =
+  let mem = map_elem<a> (s, m) in
+  match mem with
+  | PTrue ->
+      let value = map_find<a> (s, m) in
+      Just<a> value
+  | PFalse -> Nothing<a>
+  end
 
 (* Python ast *)
 (* see https://github.com/grievejia/pyre-ast/blob/trunk/lib/concrete.ml *)
-
 type pythonInt
 type pythonString
 type pythonBool = | True | False
@@ -14,6 +58,7 @@ type stmt =
   | SExpr expr
   | SAssign (id, expr)
   | SDel id
+  | SReturn expr
   | SFunctionDef (id, list<id>, list<stmt>)
 
 type constant =
@@ -21,8 +66,6 @@ type constant =
   | CBool pythonBool
   | CInt pythonInt
   | CString pythonString
-
-type id
 
 type expr =
   | Constant constant
@@ -50,25 +93,83 @@ type objS =
   | Methods (pythonString -> addr)
 
 (* Read-only state, contains builtins *)
-type r = (true: addr, false: addr, none: addr, notImplemented: addr)
+type builtins = (true: addr, false: addr, none: addr, notImplemented: addr)
+type r = (local_env: env, builtins: builtins)
 
 type addr
 
-val unboundLocalError : addr
+val todoError : addr
 
-(* Global state of the interpreter *)
-type env
+(** Global state of the interpreter **)
+type var_scope =
+  | Local
+  | NonLocal
+  | Global
+
+(* Scope: maps id to addresses *)
+type scope = (scope_up: maybe<scope>, mapping: map<maybe<addr>>)
+
+val find_local ((id, s): (id, scope)) : maybe<maybe<addr>> =
+  map_lookup<maybe<addr>> (id, s.mapping)
+
+val find_nonlocal' ((id, s): (id, scope)) : maybe<maybe<addr>> =
+  let val_local = find_local (id, s) in
+  match val_local with
+  | Nothing ->
+      match s.scope_up with
+      | Nothing -> Nothing<maybe<addr>>
+      | Just sup -> find_nonlocal' (id, sup)
+      end
+  | Just value -> Just<maybe<addr>> value
+  end
+
+val find_nonlocal ((id, s): (id, scope)) : maybe<maybe<addr>> =
+  match s.scope_up with
+  | Nothing -> Nothing<maybe<addr>>
+  | Just sup -> find_nonlocal' (id, sup)
+  end
+
+(* returns Nothing if id is not in scope *)
+val write_local ((id, a, s): (id, addr, scope)) : maybe<scope> =
+  let mem = map_elem<maybe<addr>> (id, s.mapping) in
+  match mem with
+  | PFalse -> Nothing<scope>
+  | PTrue ->
+      let m' = map_insert<maybe<addr>> (id, (Just<addr> a), s.mapping) in
+      let s' = s <- (mapping = m') in
+      Just<scope> s'
+  end
+
+val write_nonlocal' ((id, a, s): (id, addr, scope)) : maybe<scope> =
+  let val_local = write_local (id, a, s) in
+  match val_local with
+  | Nothing ->
+      match s.scope_up with
+      | Nothing -> Nothing<scope>
+      | Just sup -> write_nonlocal' (id, a, sup)
+      end
+  | Just value -> Just<scope> value
+  end
+
+val write_nonlocal ((id, a, s): (id, addr, scope)) : maybe<scope> =
+  match s.scope_up with
+  | Nothing -> Nothing<scope>
+  | Just sup -> write_nonlocal' (id, a, sup)
+  end
+
+(* Env: maps id to scope_var *)
+type env =
+  | Globl
+  | InFun map<var_scope>
+
+type global_scope = map<addr>
+
 type heap
 type flag =
-  | Ret
+  | Ret addr
   | Brk
   | Cont
   | Exn addr
-
-val initialEnv : env
-val getEnvData : (env, id) -> maybe<addr>
-val envWrite : (env, id, maybe<addr>) -> env
-val envDelete : (env, id) -> env
 
 val heapAlloc : (heap, (objN, objS)) -> (addr, heap)
 val heapRead : (heap, addr) -> ((objN, objS), heap)
@@ -81,110 +182,182 @@ val initializedHeap (() : ()) : (r, heap) =
   let (false, h) = heapAlloc (h, (Bool False, Locked)) in
   let (none, h) = heapAlloc (h, (None, Locked)) in
   let (notImplemented, h) = heapAlloc (h, (NotImplemented, Locked)) in
-  ((true = true, false = false, none = none, notImplemented = notImplemented), h)
+  ((local_env = Globl, builtins = (true = true, false = false, none = none, notImplemented = notImplemented)), h)
 
 
 (* Evaluation Monad *)
-type s := (env, heap)
+type s = (global_scope: global_scope, local_scope: maybe<scope>, heap: heap)
 
 type exn<a> =
   | Cur a
   | Flag flag
 
 (* Evaluation monad :: Reader r (State s (Except exn a)) *)
-type m<a> := r -> s -> (exn<a>, s)
+type m<a> = (r, s) -> (exn<a>, s)
 
 val return<a> (v : a) : m<a> =
-  \_:r -> \s:s -> (Cur<a> v, s)
-val bind<a, b> (o : m<a>) (f : a -> m<b>) : m<b> =
-  \r:r -> \s:s ->
-    let (a, s') = o r s in
+  \(_, s):(r, s) -> (Cur<a> v, s)
+val bind<a, b> ((o, f) : (m<a>, a -> m<b>)) : m<b> =
+  \(r, s):(r, s) ->
+    let (a, s') = o (r, s) in
     match a with
     | Cur a ->
-      f a r s'
+      let fa = f a in
+      fa (r, s')
     | Flag f ->
       (Flag<b> f, s')
     end
 
-binder @ := bind
+binder @ = bind
 
 val ret (v : addr) : m<addr> = return<addr> v
 
 (* General monadic functions *)
-val mapM<a, b> (f : a -> m<b>) (l : list<a>) : m<list<b>> =
+val mapM<a, b> ((f, l) : (a -> m<b>, list<a>)) : m<list<b>> =
   match l with
   | Nil -> return<list<b>> Nil<b>
   | Cons(h, t) ->
     let mh =@ f h in
-    let mt =@ mapM<a, b> f t in
+    let mt =@ mapM<a, b> (f, t) in
     return<list<b>> (Cons<b>(mh, mt))
   end
 
-val zipWithM<a, b, c> (f : a -> b -> m<c>) (la : list<a>) (lb : list<b>) : m<list<c>> =
+val zipWithM<a, b, c> ((f, la, lb) : ((a, b) -> m<c>, list<a>, list<b>)) : m<list<c>> =
   match (la, lb) with
   | (Nil, _) -> return<list<c>> Nil<c>
   | (_, Nil) -> return<list<c>> Nil<c>
   | (Cons(ha, ta), Cons(hb, tb)) ->
-    let mh =@ f ha hb in
-    let mt =@ zipWithM<a, b, c> f ta tb in
+    let mh =@ f (ha, hb) in
+    let mt =@ zipWithM<a, b, c> (f, ta, tb) in
     return<list<c>> (Cons<c>(mh, mt))
   end
 
 (* Useful functions, state manipulation *)
 val ask : m<r> =
-  \r:r -> \s:s -> (Cur<r> r, s)
+  \(r, s):(r, s) -> (Cur<r> r, s)
+
+val local<a> ((f, m) : (r -> r, m<a>)) : m<a> =
+  \(r, s):(r, s) ->
+  let r' = f r in
+  m (r', s)
 
 val get : m<s> =
-  \_:r -> \s:s -> (Cur<s> s, s)
+  \(_, s):(r, s) -> (Cur<s> s, s)
 
 val gets<a> (f : s -> a) : m<a> =
-  \_:r -> \s:s -> let a = f s in (Cur<a> a, s)
+  \(_, s):(r, s) -> let a = f s in (Cur<a> a, s)
 
 val put (s: s) : m<()> =
-  \_:r -> \_:s -> (Cur<()> (), s)
+  \(_, _):(r, s) -> (Cur<()> (), s)
 
 val modify (f: s -> s) : m<()> =
-  \_:r -> \s:s -> let s' = f s in (Cur<()> (), s')
+  \(_, s):(r, s) -> let s' = f s in (Cur<()> (), s')
 
 val setFlag<a> (f: flag) : m<a> =
-  \_:r -> \s:s -> (Flag<a> f, s)
+  \(_, s):(r, s) -> (Flag<a> f, s)
 
+val catchFlag<a> ((m, f): (m<a>, flag -> m<a>)) : m<a> =
+  let s =@ get in
+  let r =@ ask in
+  let (res, s) = m (r, s) in
+  put s ;@
+  match res with
+  | Cur x -> return<a> x
+  | Flag flg -> f flg
+  end
 
 (* Read and Modify state *)
 val alloc (v:(objN, objS)) : m<addr> =
-  let (e, h) =@ get in
-  let (a, h') = heapAlloc (h, v) in
-  let _ =@ put (e, h') in
+  let s =@ get in
+  let (a, h') = heapAlloc (s.heap, v) in
+  let s' = s <- (heap = h') in
+  put s' ;@
   ret a
 
 val read (a:addr) : m<(objN, objS)> =
-  let (e, h) =@ get in
-  let (v, h') = heapRead (h, a) in
-  let _ =@ put (e, h') in
+  let s =@ get in
+  let (v, h') = heapRead (s.heap, a) in
+  let s' = s <- (heap = h') in
+  put s' ;@
   return<(objN, objS)> v
 
 val write (a:addr) (v:(objN, objS)) : m<()> =
-  let (e, h) =@ get in
-  let (_, h') = heapWrite (h, a, v) in
-  put (e, h')
+  let s =@ get in
+  let (_, h') = heapWrite (s.heap, a, v) in
+  let s' = s <- (heap = h') in
+  put s'
+
+val initialEnv : map<maybe<addr>> = map_empty<maybe<addr>>
 
 val readEnv (id:id) : m<addr> =
-  let (e, _) =@ get in
-  let r = getEnvData (e, id) in
-  match r with
-  | Nothing -> setFlag<addr> (Exn unboundLocalError)
-  | Just a -> ret a
+  let s =@ get in
+  let r =@ ask in
+  match r.local_env with
+  | Globl -> (* We are in the global env, we just look for the variable in the global map *)
+    let a = map_find<addr> (id, s.global_scope) in
+    ret a
+  | InFun e -> (* We are evaluating a function, we refer to the local environment *)
+    let scope_id = map_lookup<var_scope> (id, e) in
+    match scope_id with
+    | Nothing -> setFlag<addr> (Exn todoError)
+    (* Look in the right scope *)
+    | Just Local ->
+      match s.local_scope with
+      (* TODO: need to handle exception here *)
+      | Just ls ->
+        let Just (Just a) = find_local (id, ls) in
+        ret a
+      | Nothing -> setFlag<addr> (Exn todoError)
+      end
+    | Just NonLocal ->
+      (* TODO: need to handle exceptions here *)
+      let Just ls = s.local_scope in
+      let Just (Just a) = find_nonlocal (id, ls) in
+      ret a
+    | Just Global ->
+      let a = map_find<addr> (id, s.global_scope) in
+      ret a
+    end
   end
 
-val writeEnv (id:id) (a:addr) : m<()> =
-  let (e, h) =@ get in
-  let e' = envWrite (e, id, Just<addr> a) in
-  put (e', h)
+val writeEnv ((id, a):(id, addr)) : m<()> =
+  let s =@ get in
+  let r =@ ask in
+  match r.local_env with
+  | Globl ->
+    let gs' = map_insert<addr> (id, a, s.global_scope) in
+    let s' = s <- (global_scope = gs') in
+    put s'
+  | InFun e ->
+    let scope_id = map_lookup<var_scope> (id, e) in
+    match scope_id with
+      (* Not in scope => Error *)
+    | Nothing ->
+      setFlag<()> (Exn todoError)
+      (* Local scope *)
+    | Just Local ->
+      let Just ls = s.local_scope in
+      let m' = write_local (id, a, ls) in
+      let s' = s <- (local_scope = m') in
+      put s'
+    | Just NonLocal ->
+      let Just ls = s.local_scope in
+      let m' = write_nonlocal (id, a, ls) in
+      let s' = s <- (local_scope = m') in
+      put s'
+      (* In global scope, modify the value *)
+    | Just Global ->
+      let gs' = map_insert<addr> (id, a, s.global_scope) in
+      let s' = s <- (global_scope = gs') in
+      put s'
+    end
+  end
 
 val deleteEnv (id:id) : m<()> =
-  let (e, h) =@ get in
-  let e' = envDelete (e, id) in
-  put (e', h)
+  let s =@ get in
+  let e' = map_del<addr> (id, s.global_scope) in
+  let s' = s <- (global_scope = e') in
+  put s'
 
 (* Semantics related functions *)
 val locals (ss : list<stmt>) : list<id> =
@@ -197,26 +370,30 @@ val locals (ss : list<stmt>) : list<id> =
   end
 
 val eval_stmts (ss:list<stmt>) : m<()> =
-  let _ =@ mapM<stmt, ()> eval_stmt ss in
+  mapM<stmt, ()> (eval_stmt, ss) ;@
   return<()> ()
 
 (* Evaluation rules *)
 val eval_stmt (s:stmt) : m<()> =
   match s with
   | SExpr e ->
-      let _ =@ eval_expr e
-	  in return<()> ()
+      eval_expr e ;@
+      return<()> ()
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.71 *)
   | SAssign (x, v) ->
     let addr =@ eval_expr v in
-    writeEnv x addr
+    writeEnv (x, addr)
   | SDel id -> deleteEnv id
+  (* Return, raise the ret flag *)
+  | SReturn e ->
+    let addr =@ eval_expr e in
+    setFlag<()> (Ret addr)
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.115 *)
   | SFunctionDef (name, args, body) ->
     let bodyLocals = locals body in
     let f = Fun(name, args, bodyLocals, body) in
     let addr =@ alloc (f, Locked) in
-	  writeEnv name addr
+	  writeEnv (name, addr)
   end
 
 val eval_expr (e:expr) : m<addr> =
@@ -227,17 +404,68 @@ val eval_expr (e:expr) : m<addr> =
   | Name id -> readEnv id
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.121 *)
   | Call(e_c, args) ->
+    let r =@ ask in
+    (* Eval the function *)
     let at_c =@ eval_expr e_c in
     let (Fun(_, a, loc, body), _) =@ read at_c in
-    let at_args =@ mapM<expr, addr> eval_expr args in
-    let _ =@ zipWithM<id, addr, ()> writeEnv a at_args in
-    let _ =@ eval_stmts body in
-    let builtins =@ ask in
-    ret builtins.none
+
+    (* Eval and set the arguments *)
+    let at_args =@ mapM<expr, addr> (eval_expr, args) in
+    let args_with_values = zip<id, addr> (a, at_args) in
+
+    (* Set the local variables to LocalUndef *)
+    (* Can s.scope change between here and the beginning of the function? *)
+    let s =@ get in
+    let locals_undef =
+      let f ((m, s):(map<maybe<addr>>, id)) = map_insert<maybe<addr>> (s, Nothing<addr>, m) in
+      foldl<id, map<maybe<addr>>> (f , map_empty<maybe<addr>> , loc) in
+    let locals_with_args =
+      let f ((m, (s, a)):(map<maybe<addr>>, (id, addr))) = map_insert<maybe<addr>> (s, Just<addr> a, m) in
+      foldl<(id, addr), map<maybe<addr>>> (f , locals_undef , args_with_values) in
+    let inner_scope = (scope_up = s.local_scope, mapping = locals_with_args) in
+
+    let all_locals = append<id> (loc, a) in
+    let fun_env =
+      let f ((m, s):(map<var_scope>, id)) = map_insert<var_scope> (s, Local, m) in
+      foldl<id, map<var_scope>> (f , map_empty<var_scope> , all_locals) in
+    let set_locals = \_:r ->
+      let local_env' = InFun fun_env in
+      r <- (local_env = local_env')
+    in
+
+    let bodyEvaluation = (
+      eval_stmts body ;@
+      return<addr> r.builtins.none
+    ) in
+
+    let localBodyEval = local<addr> (set_locals, bodyEvaluation) in
+
+    let catchReturn = \f:flag ->
+      match f with
+      | Ret a -> return<addr> a
+      | f -> setFlag<addr> f
+      end in
+
+    let result =@ (
+      (* Save current scope *)
+      let old_scope = s.local_scope in
+      let s' = s <- (local_scope = Just<scope> inner_scope) in
+      put s' ;@
+
+      (* eval function body *)
+      let result =@ catchFlag<addr> (localBodyEval, catchReturn) in
+
+      (* Restore former scope *)
+      let s =@ get in
+      let s'' = s <- (local_scope = old_scope) in
+      put s'' ;@
+      ret result
+    ) in
+    ret result
   end
 
 val eval_constant (c:constant) : m<addr> =
-  let builtins =@ ask in
+  let (builtins = builtins, local_env = _) =@ ask in
   match c with
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.70 *)
   | CBool True -> ret builtins.true
