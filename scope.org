@@ -33,3 +33,29 @@ def foo():
         print(x)
     return (incr,reset)
 #+end_src
+* Reading variables
+#+begin_src python :results output
+x = 5
+def foo():
+    return x
+print(foo())
+#+end_src
+
+#+begin_src python :results output
+def foo():
+    x = 5
+    def bar():
+        return x
+    bar()
+print(foo())
+#+end_src
+* arguments and locals
+#+begin_src python :results output
+x = [1,2]
+def foo(x):
+    x.append(3)
+    x = []
+    return x
+print(foo(x))
+print(x)
+#+end_src
