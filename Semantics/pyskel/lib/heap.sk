@@ -1,0 +1,15 @@
+#ifndef HEAP_SK
+#define HEAP_SK
+
+type heap<_>
+type heap_addr<_>
+
+val heapAlloc<a> : (heap<a>, a) -> (heap_addr<a>, heap<a>)
+val heapRead<a> : (heap<a>, heap_addr<a>) -> (a, heap<a>)
+val heapWrite<a> : (heap<a>, heap_addr<a>, a) -> ((), heap<a>)
+
+val initialHeap<a> : heap<a>
+
+
+(* HEAP_SK *)
+#endif

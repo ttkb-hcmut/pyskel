@@ -1,0 +1,20 @@
+#ifndef MAP_SK
+#define MAP_SK
+
+type map<_>
+val map_empty<a> : map<a>
+val map_elem<a> : (id, map<a>) -> pbool
+val map_find<a> : (id, map<a>) -> a
+val map_insert<a> : (id, a, map<a>) -> map<a> val map_del<a> : (id, map<a>) -> map<a>
+
+val map_lookup<a> ((s: id), (m: map<a>)) : maybe<a> =
+  let mem = map_elem<a> (s, m) in
+  match mem with
+  | PTrue ->
+      let value = map_find<a> (s, m) in
+      Just<a> value
+  | PFalse -> Nothing<a>
+  end
+
+(* MAP_SK *)
+#endif

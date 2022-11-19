@@ -4,7 +4,7 @@
 
 (rule
  (target semantics_full.sk)
- (deps semantics.sk list.sk)
+ (deps semantics.sk list.sk maybe.sk map.sk heap.sk)
  (action
   (pipe-stdout
    (run cpp -traditional-cpp semantics.sk)

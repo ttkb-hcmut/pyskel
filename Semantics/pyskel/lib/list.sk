@@ -1,3 +1,6 @@
+#ifndef LIST_SK
+#define LIST_SK
+
 type list<a> = | Nil | Cons (a, list<a>)
 
 val foldl<a, b> ((f: (b, a) -> b), (acc: b), (l: list<a>)) : b =
@@ -24,3 +27,6 @@ val append<a> ((l1: list<a>), (l2: list<a>)) : list<a> =
     let t = append<a> (t1, l2) in
     Cons<a>(h1, t)
   end
+
+(* LIST_SK *)
+#endif

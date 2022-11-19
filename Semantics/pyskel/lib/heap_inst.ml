@@ -3,9 +3,8 @@ open Necromonads
 module IMap = Map.Make(Int)
 
 module type TYPE = sig
-  type value
-  type addr = int
-  type heap = value IMap.t * int
+  type 'a heap_addr = int
+  type 'a heap = 'a IMap.t * int
 end
 
 module Spec (M:MONAD) = struct

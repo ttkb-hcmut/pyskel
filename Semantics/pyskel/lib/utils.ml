@@ -5,8 +5,6 @@ module Inst(M:MONAD) = struct
   module rec Types : sig
     include Constant_inst.TYPE
     include Heap_inst.TYPE
-      with type value = Semantics.Unspec(M)(Types).objN *
-                        Semantics.Unspec(M)(Types).objS
     include Map_inst.TYPE
   end = Types
 

@@ -1,28 +1,13 @@
-(* Useful types *)
-
 (* #include "/home/marsu/Documents/Travail/ENS/M1/Projet/pyskel/Semantics/pyskel/lib/list.sk" *)
 #include "list.sk"
-
-type maybe<a> = | Nothing | Just a
+#include "maybe.sk"
+#include "map.sk"
+#include "heap.sk"
 
 (* General String map *)
 type id
 type pbool = | PTrue | PFalse
 
-type map<_>
-val map_empty<a> : map<a>
-val map_elem<a> : (id, map<a>) -> pbool
-val map_find<a> : (id, map<a>) -> a
-val map_insert<a> : (id, a, map<a>) -> map<a> val map_del<a> : (id, map<a>) -> map<a>
-
-val map_lookup<a> ((s: id), (m: map<a>)) : maybe<a> =
-  let mem = map_elem<a> (s, m) in
-  match mem with
-  | PTrue ->
-      let value = map_find<a> (s, m) in
-      Just<a> value
-  | PFalse -> Nothing<a>
-  end
 
 (* Python ast *)
 (* see https://github.com/grievejia/pyre-ast/blob/trunk/lib/concrete.ml *)
@@ -73,7 +58,24 @@ type objS =
 type builtins = (true: addr, false: addr, none: addr, notImplemented: addr)
 type r = (local_env: env, builtins: builtins)
 
-type addr
+type addr = heap_addr<(objN, objS)>
+
+type pythonHeap = heap<(objN, objS)>
+val pythonHeapAlloc : (pythonHeap, (objN, objS)) -> (addr, pythonHeap)
+  = heapAlloc<(objN, objS)>
+val pythonHeapRead : (pythonHeap, addr) -> ((objN, objS), heap<(objN, objS)>)
+  = heapRead<(objN, objS)>
+val pythonHeapWrite : (pythonHeap, addr, (objN, objS)) -> ((), pythonHeap)
+  = heapWrite<(objN, objS)>
+
+val initializedHeap (() : ()) : (r, pythonHeap) =
+  let h = initialHeap<(objN, objS)> in
+  let (true, h) = pythonHeapAlloc (h, (Bool True, Locked)) in
+  let (false, h) = pythonHeapAlloc (h, (Bool False, Locked)) in
+  let (none, h) = pythonHeapAlloc (h, (None, Locked)) in
+  let (notImplemented, h) = pythonHeapAlloc (h, (NotImplemented, Locked)) in
+  ((local_env = Globl, builtins = (true = true, false = false, none = none, notImplemented = notImplemented)), h)
+
 
 val todoError : addr
 
@@ -141,29 +143,25 @@ type env =
 
 type global_scope = map<addr>
 
-type heap
 type flag =
   | Ret addr
   | Brk
   | Cont
   | Exn addr
 
-val heapAlloc : (heap, (objN, objS)) -> (addr, heap)
-val heapRead : (heap, addr) -> ((objN, objS), heap)
-val heapWrite : (heap, addr, (objN, objS)) -> ((), heap)
 
-val initialHeap : heap
-val initializedHeap (() : ()) : (r, heap) =
-  let h = initialHeap in
-  let (true, h) = heapAlloc (h, (Bool True, Locked)) in
-  let (false, h) = heapAlloc (h, (Bool False, Locked)) in
-  let (none, h) = heapAlloc (h, (None, Locked)) in
-  let (notImplemented, h) = heapAlloc (h, (NotImplemented, Locked)) in
-  ((local_env = Globl, builtins = (true = true, false = false, none = none, notImplemented = notImplemented)), h)
+type scope_id = heap_addr<scope>
+type scopeHeap = heap<scope>
+val scopeHeapAlloc : (scopeHeap, scope) -> (scope_id, scopeHeap)
+  = heapAlloc<scope>
+val scopeHeapRead : (scopeHeap, scope_id) -> (scope, heap<scope>)
+  = heapRead<scope>
+val scopeHeapWrite : (scopeHeap, scope_id, scope) -> ((), scopeHeap)
+  = heapWrite<scope>
 
 
 (* Evaluation Monad *)
-type s = (global_scope: global_scope, local_scope: maybe<scope>, heap: heap)
+type s = (global_scope: global_scope, local_scope: maybe<scope>, heap: pythonHeap)
 
 type exn<a> =
   | Cur a
@@ -246,21 +244,21 @@ val catchFlag<a> ((m: m<a>), (f: flag -> m<a>)) : m<a> =
 (* Read and Modify state *)
 val alloc (v:(objN, objS)) : m<addr> =
   let s =@ get in
-  let (a, h') = heapAlloc (s.heap, v) in
+  let (a, h') = pythonHeapAlloc (s.heap, v) in
   let s' = s <- (heap = h') in
   put s' ;@
   ret a
 
 val read (a:addr) : m<(objN, objS)> =
   let s =@ get in
-  let (v, h') = heapRead (s.heap, a) in
+  let (v, h') = pythonHeapRead (s.heap, a) in
   let s' = s <- (heap = h') in
   put s' ;@
   return<(objN, objS)> v
 
 val write (a:addr) (v:(objN, objS)) : m<()> =
   let s =@ get in
-  let (_, h') = heapWrite (s.heap, a, v) in
+  let (_, h') = pythonHeapWrite (s.heap, a, v) in
   let s' = s <- (heap = h') in
   put s'
 
