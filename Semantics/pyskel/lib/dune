@@ -3,11 +3,20 @@
  (libraries necroml pyre-ast))
 
 (rule
-  (target semantics.ml)
-  (deps semantics.sk)
-  (action (run necroml -o %{target} -d %{deps})))
+ (target semantics_full.sk)
+ (deps semantics.sk list.sk)
+ (action
+  (pipe-stdout
+   (run cpp -traditional-cpp semantics.sk)
+   (with-stdout-to %{target} (run sed "/^#.*/d")))))
+
+(rule
+ (target semantics.ml)
+ (deps semantics_full.sk)
+ (action
+  (run necroml -o %{target} -d %{deps})))
 
 ;; for "unused rec flag" in eval
 (env
-  (dev
-    (flags (:standard -w -39) (:standard -w -27))))
+ (dev
+  (flags (:standard -w -39) (:standard -w -27))))

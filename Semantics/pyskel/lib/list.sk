@@ -1,0 +1,26 @@
+type list<a> = | Nil | Cons (a, list<a>)
+
+val foldl<a, b> ((f: (b, a) -> b), (acc: b), (l: list<a>)) : b =
+  match l with
+  | Nil -> acc
+  | Cons(h, t) ->
+    let acc' = f (acc, h) in
+    foldl<a, b> (f, acc', t)
+  end
+
+val zip<a, b> ((l1: list<a>), (l2: list<b>)) : list<(a, b)> =
+  match (l1, l2) with
+  | (Nil, _) -> Nil<(a, b)>
+  | (_, Nil) -> Nil<(a, b)>
+  | (Cons(h1, t1), Cons(h2, t2)) ->
+    let t = zip<a, b> (t1, t2) in
+    Cons<(a, b)>((h1, h2), t)
+  end
+
+val append<a> ((l1: list<a>), (l2: list<a>)) : list<a> =
+  match l1 with
+  | Nil -> l2
+  | Cons(h1, t1) ->
+    let t = append<a> (t1, l2) in
+    Cons<a>(h1, t)
+  end

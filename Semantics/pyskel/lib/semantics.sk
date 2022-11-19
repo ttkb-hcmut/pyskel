@@ -1,30 +1,7 @@
 (* Useful types *)
-type list<a> = | Nil | Cons (a, list<a>)
 
-val foldl<a, b> ((f, acc, l): ((b, a) -> b, b, list<a>)) : b =
-  match l with
-  | Nil -> acc
-  | Cons(h, t) ->
-    let acc' = f (acc, h) in
-    foldl<a, b> (f, acc', t)
-  end
-
-val zip<a, b> ((l1, l2): (list<a>, list<b>)) : list<(a, b)> =
-  match (l1, l2) with
-  | (Nil, _) -> Nil<(a, b)>
-  | (_, Nil) -> Nil<(a, b)>
-  | (Cons(h1, t1), Cons(h2, t2)) ->
-    let t = zip<a, b> (t1, t2) in
-    Cons<(a, b)>((h1, h2), t)
-  end
-
-val append<a> ((l1, l2): (list<a>, list<a>)) : list<a> =
-  match l1 with
-  | Nil -> l2
-  | Cons(h1, t1) ->
-    let t = append<a> (t1, l2) in
-    Cons<a>(h1, t)
-  end
+(* #include "/home/marsu/Documents/Travail/ENS/M1/Projet/pyskel/Semantics/pyskel/lib/list.sk" *)
+#include "list.sk"
 
 type maybe<a> = | Nothing | Just a
 
@@ -38,7 +15,7 @@ val map_elem<a> : (id, map<a>) -> pbool
 val map_find<a> : (id, map<a>) -> a
 val map_insert<a> : (id, a, map<a>) -> map<a> val map_del<a> : (id, map<a>) -> map<a>
 
-val map_lookup<a> ((s, m) : (id, map<a>)) : maybe<a> =
+val map_lookup<a> ((s: id), (m: map<a>)) : maybe<a> =
   let mem = map_elem<a> (s, m) in
   match mem with
   | PTrue ->
@@ -109,10 +86,10 @@ type var_scope =
 (* Scope: maps id to addresses *)
 type scope = (scope_up: maybe<scope>, mapping: map<maybe<addr>>)
 
-val find_local ((id, s): (id, scope)) : maybe<maybe<addr>> =
+val find_local ((id: id), (s: scope)) : maybe<maybe<addr>> =
   map_lookup<maybe<addr>> (id, s.mapping)
 
-val find_nonlocal' ((id, s): (id, scope)) : maybe<maybe<addr>> =
+val find_nonlocal' ((id: id), (s: scope)) : maybe<maybe<addr>> =
   let val_local = find_local (id, s) in
   match val_local with
   | Nothing ->
@@ -123,14 +100,14 @@ val find_nonlocal' ((id, s): (id, scope)) : maybe<maybe<addr>> =
   | Just value -> Just<maybe<addr>> value
   end
 
-val find_nonlocal ((id, s): (id, scope)) : maybe<maybe<addr>> =
+val find_nonlocal ((id: id), (s: scope)) : maybe<maybe<addr>> =
   match s.scope_up with
   | Nothing -> Nothing<maybe<addr>>
   | Just sup -> find_nonlocal' (id, sup)
   end
 
 (* returns Nothing if id is not in scope *)
-val write_local ((id, a, s): (id, addr, scope)) : maybe<scope> =
+val write_local ((id: id), (a: addr), (s: scope)) : maybe<scope> =
   let mem = map_elem<maybe<addr>> (id, s.mapping) in
   match mem with
   | PFalse -> Nothing<scope>
@@ -140,7 +117,7 @@ val write_local ((id, a, s): (id, addr, scope)) : maybe<scope> =
       Just<scope> s'
   end
 
-val write_nonlocal' ((id, a, s): (id, addr, scope)) : maybe<scope> =
+val write_nonlocal' ((id: id), (a: addr), (s: scope)) : maybe<scope> =
   let val_local = write_local (id, a, s) in
   match val_local with
   | Nothing ->
@@ -151,7 +128,7 @@ val write_nonlocal' ((id, a, s): (id, addr, scope)) : maybe<scope> =
   | Just value -> Just<scope> value
   end
 
-val write_nonlocal ((id, a, s): (id, addr, scope)) : maybe<scope> =
+val write_nonlocal ((id: id), (a: addr), (s: scope)) : maybe<scope> =
   match s.scope_up with
   | Nothing -> Nothing<scope>
   | Just sup -> write_nonlocal' (id, a, sup)
@@ -197,7 +174,7 @@ type m<a> = (r, s) -> (exn<a>, s)
 
 val return<a> (v : a) : m<a> =
   \(_, s):(r, s) -> (Cur<a> v, s)
-val bind<a, b> ((o, f) : (m<a>, a -> m<b>)) : m<b> =
+val bind<a, b> ((o: m<a>), (f: a -> m<b>)) : m<b> =
   \(r, s):(r, s) ->
     let (a, s') = o (r, s) in
     match a with
@@ -213,7 +190,7 @@ binder @ = bind
 val ret (v : addr) : m<addr> = return<addr> v
 
 (* General monadic functions *)
-val mapM<a, b> ((f, l) : (a -> m<b>, list<a>)) : m<list<b>> =
+val mapM<a, b> ((f: a -> m<b>), (l: list<a>)) : m<list<b>> =
   match l with
   | Nil -> return<list<b>> Nil<b>
   | Cons(h, t) ->
@@ -222,7 +199,7 @@ val mapM<a, b> ((f, l) : (a -> m<b>, list<a>)) : m<list<b>> =
     return<list<b>> (Cons<b>(mh, mt))
   end
 
-val zipWithM<a, b, c> ((f, la, lb) : ((a, b) -> m<c>, list<a>, list<b>)) : m<list<c>> =
+val zipWithM<a, b, c> ((f: (a, b) -> m<c>), (la: list<a>), (lb: list<b>)) : m<list<c>> =
   match (la, lb) with
   | (Nil, _) -> return<list<c>> Nil<c>
   | (_, Nil) -> return<list<c>> Nil<c>
@@ -236,7 +213,7 @@ val zipWithM<a, b, c> ((f, la, lb) : ((a, b) -> m<c>, list<a>, list<b>)) : m<lis
 val ask : m<r> =
   \(r, s):(r, s) -> (Cur<r> r, s)
 
-val local<a> ((f, m) : (r -> r, m<a>)) : m<a> =
+val local<a> ((f: r -> r), (m: m<a>)) : m<a> =
   \(r, s):(r, s) ->
   let r' = f r in
   m (r', s)
@@ -256,7 +233,7 @@ val modify (f: s -> s) : m<()> =
 val setFlag<a> (f: flag) : m<a> =
   \(_, s):(r, s) -> (Flag<a> f, s)
 
-val catchFlag<a> ((m, f): (m<a>, flag -> m<a>)) : m<a> =
+val catchFlag<a> ((m: m<a>), (f: flag -> m<a>)) : m<a> =
   let s =@ get in
   let r =@ ask in
   let (res, s) = m (r, s) in
@@ -320,7 +297,7 @@ val readEnv (id:id) : m<addr> =
     end
   end
 
-val writeEnv ((id, a):(id, addr)) : m<()> =
+val writeEnv ((id: id), (a: addr)) : m<()> =
   let s =@ get in
   let r =@ ask in
   match r.local_env with
@@ -353,14 +330,14 @@ val writeEnv ((id, a):(id, addr)) : m<()> =
     end
   end
 
-val deleteEnv (id:id) : m<()> =
+val deleteEnv (id: id) : m<()> =
   let s =@ get in
   let e' = map_del<addr> (id, s.global_scope) in
   let s' = s <- (global_scope = e') in
   put s'
 
 (* Semantics related functions *)
-val locals (ss : list<stmt>) : list<id> =
+val locals (ss: list<stmt>) : list<id> =
   match ss with
   | Nil -> Nil<id>
   | Cons(SAssign(x, _), ss') ->
@@ -369,12 +346,12 @@ val locals (ss : list<stmt>) : list<id> =
   | Cons(_, ss') -> locals ss'
   end
 
-val eval_stmts (ss:list<stmt>) : m<()> =
+val eval_stmts (ss: list<stmt>) : m<()> =
   mapM<stmt, ()> (eval_stmt, ss) ;@
   return<()> ()
 
 (* Evaluation rules *)
-val eval_stmt (s:stmt) : m<()> =
+val eval_stmt (s: stmt) : m<()> =
   match s with
   | SExpr e ->
       eval_expr e ;@
@@ -396,7 +373,7 @@ val eval_stmt (s:stmt) : m<()> =
 	  writeEnv (name, addr)
   end
 
-val eval_expr (e:expr) : m<addr> =
+val eval_expr (e: expr) : m<addr> =
   match e with
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.70 *)
   | Constant constant -> eval_constant constant
