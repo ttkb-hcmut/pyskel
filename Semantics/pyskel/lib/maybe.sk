@@ -10,14 +10,13 @@ type maybe<a> =
 val mapMaybe<a, b> ((f: a -> maybe<b>), (l: list<a>)): list<b> =
   match l with
   | Nil -> Nil<b>
-  | Cons(h, t) -> (
+  | Cons(h, t) ->
     let tb = mapMaybe<a, b> (f, t) in
     let fh = f h in
     match fh with
     | Nothing -> tb
     | Just b -> Cons<b>(b, tb)
     end
-  )
   end
 
 (* MAYBE_SK *)

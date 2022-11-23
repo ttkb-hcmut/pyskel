@@ -11,4 +11,5 @@ end
 
 module Spec(M:MONAD) = struct
   exception NotImplemented of string
+  let debug () = M.ret @@ print_endline "debug"
 end

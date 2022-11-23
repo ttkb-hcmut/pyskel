@@ -47,7 +47,7 @@ let rec translate_expr (e: Concrete.Expression.t) : expr =
     Constant (CString s)
   | Concrete.Expression.Call {func = f; args = args; _} ->
     Call(translate_expr f, to_pyskel_list @@ Stdlib.List.map translate_expr args)
-  | _ -> failwith "Not specified yet"
+  | _ -> failwith "Expression not specified yet"
 
 let translate_argument ({identifier = id; _} : Concrete.Argument.t)
   : Concrete.Identifier.t =
@@ -83,6 +83,10 @@ let rec translate_stmt (s : Concrete.Statement.t) : stmt =
       Stdlib.List.map Concrete.Identifier.to_string @@
       translate_arguments args in
     SFunctionDef(Concrete.Identifier.to_string name, arguments, stmts)
+  | Concrete.Statement.Nonlocal {names = [id]; _} ->
+    SNonlocal (Concrete.Identifier.to_string id)
+  | Concrete.Statement.Global {names = [id]; _} ->
+    SGlobal (Concrete.Identifier.to_string id)
   | _ -> failwith "statement not specified yet"
 
 

@@ -27,7 +27,6 @@ let _ =
     (fun Parser.Error.{message; line; column; _} ->
        Printf.fprintf stderr "Syntax error at (line %d, column %d):\n\t%s\n" line column message;
        exit 1;
-
     ) a;
 
   (* Eval file *)
@@ -36,10 +35,7 @@ let _ =
   let (builtins, heap) = M.extract @@ initializedHeap () in
   match M.extract (fs (builtins,
     { global_scope = initialEnv
-    ; local_scope = Just
-          { scope_up = Nothing
-          ; mapping = map_empty
-          }
+    ; scope_heap = initialHeap
     ; heap = heap})) with
   | (Flag f, _) ->
     Printf.printf "Error, result is not Cur.\n";
@@ -56,7 +52,7 @@ let _ =
           | NotImplemented -> Printf.printf "Result is NotImplemented.\n"
           | Int n -> Printf.printf "Result is %d\n" n
           | String s -> Printf.printf "Result is \"%s\"\n" s
-          | Fun(name, args, locals, _body) ->
+          | Fun(name, args, locals, _body, _scope_up) ->
             Printf.printf "Result is function %s(%s) with locals = (%s)\n"
               name
               (Stdlib.List.fold_left (fun s p -> s ^ p ^ ", ") "" @@ Utils.to_standard_list args)
