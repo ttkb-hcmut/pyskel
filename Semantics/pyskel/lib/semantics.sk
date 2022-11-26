@@ -134,7 +134,7 @@ val write_nonlocal' ((id: id), (a: addr), (sid: scope_id)) : m<()> =
   let wl = write_local (id, a, sid) in
   let action (f: flag) =
     match f with
-    | Exn a ->
+    | Exn _ ->
       match scope.scope_up with
       | Nothing -> setFlag<()> (Exn todoError)
       | Just sup -> write_nonlocal' (id, a, sup)

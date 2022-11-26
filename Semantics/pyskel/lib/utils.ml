@@ -18,6 +18,7 @@ module Inst(M:MONAD) = struct
   end
 
   module Interpreter = Semantics.MakeInterpreter(Spec)
+  (* module Debuger = Debug.MakeDebuger(Spec) *)
 end
 
 module InterInst = Inst(Necromonads.ContPoly)

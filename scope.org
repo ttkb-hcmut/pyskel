@@ -41,6 +41,9 @@ def foo():
 print(foo())
 #+end_src
 
+#+RESULTS:
+: 5
+
 #+begin_src python :results output
 def foo():
     x = 5
