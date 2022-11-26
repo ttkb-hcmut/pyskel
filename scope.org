@@ -45,13 +45,19 @@ print(foo())
 : 5
 
 #+begin_src python :results output
+x = 42
+
 def foo():
     x = 5
     def bar():
         return x
-    bar()
+    return bar()
 print(foo())
 #+end_src
+
+#+RESULTS:
+: 5
+
 * arguments and locals
 #+begin_src python :results output
 x = [1,2]

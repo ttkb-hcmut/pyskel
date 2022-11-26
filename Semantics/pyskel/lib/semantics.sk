@@ -91,6 +91,11 @@ type var_scope =
 type scope_id = heap_addr<scope>
 type scope = (scope_up: maybe<scope_id>, mapping: map<maybe<addr>>)
 
+val find_global (id: id) : m<addr> =
+  let s =@ get in
+  let a = map_find<addr> (id, s.global_scope) in
+  ret a
+
 val find_local ((id: id), (sid: scope_id)) : m<maybe<maybe<addr>>> =
   let scope =@ readScope sid in
   let res = (map_lookup<maybe<addr>> (id, scope.mapping)) in
@@ -298,27 +303,33 @@ val writeScope ((a:scope_id), (v:scope)) : m<()> =
 val initialEnv : map<maybe<addr>> = map_empty<maybe<addr>>
 
 val readEnv (id:id) : m<addr> =
-  let s =@ get in
   let r =@ ask in
   match r.local_env with
   | Globl -> (* We are in the global env, we just look for the variable in the global map *)
-    let a = map_find<addr> (id, s.global_scope) in
-    ret a
+    find_global id
   | InFun (e, scope_id) -> (* We are evaluating a function, we refer to the local environment *)
     let scope_var = map_lookup<var_scope> (id, e) in
     match scope_var with
-    | Nothing -> setFlag<addr> (Exn todoError)
+    | Nothing ->
+      let ma =@ find_nonlocal (id, scope_id) in
+      match ma with
+      | Nothing -> find_global id
+      | Just (Just a) -> ret a
+      | Just Nothing -> setFlag<addr> (Exn todoError)
+      end
     (* Look in the right scope *)
     | Just Local ->
-        let Just (Just a) =@ find_local (id, scope_id) in
-        ret a
+        let (Just a) =@ find_local (id, scope_id) in
+        match a with
+        | Just a -> ret a
+        (* LocalUndef *)
+        | Nothing -> setFlag<addr> (Exn todoError)
+        end
     | Just NonLocal ->
         (* TODO: need to handle exceptions here *)
         let Just (Just a) =@ find_nonlocal (id, scope_id) in
         ret a
-    | Just Global ->
-        let a = map_find<addr> (id, s.global_scope) in
-        ret a
+    | Just Global -> find_global id
     end
   end
 
