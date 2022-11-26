@@ -1,4 +1,4 @@
 (test
  (name pyskel)
- (deps test.py)
+ (deps (source_tree python_tests))
  (libraries pyskel necroml pyre-ast))

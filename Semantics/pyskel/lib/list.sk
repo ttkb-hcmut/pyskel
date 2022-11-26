@@ -1,6 +1,9 @@
 #ifndef LIST_SK
 #define LIST_SK
 
+#include "bool.sk"
+#include "function.sk"
+
 type list<a> = | Nil | Cons (a, list<a>)
 
 val foldl<a, b> ((f: (b, a) -> b), (acc: b), (l: list<a>)) : b =
@@ -9,6 +12,14 @@ val foldl<a, b> ((f: (b, a) -> b), (acc: b), (l: list<a>)) : b =
   | Cons(h, t) ->
     let acc' = f (acc, h) in
     foldl<a, b> (f, acc', t)
+  end
+
+val foldr<a, b> ((f: (a, b) -> b), (acc: b), (l: list<a>)) : b =
+  match l with
+  | Nil -> acc
+  | Cons(h, t) ->
+    let acc' = foldr<a, b>(f, acc, t) in
+    f(h, acc')
   end
 
 val zip<a, b> ((l1: list<a>), (l2: list<b>)) : list<(a, b)> =
@@ -27,6 +38,28 @@ val append<a> ((l1: list<a>), (l2: list<a>)) : list<a> =
     let t = append<a> (t1, l2) in
     Cons<a>(h1, t)
   end
+
+val filter<a> ((f: a -> bool), (l: list<a>)) : list<a> =
+  match l with
+  | Nil -> Nil<a>
+  | Cons(h, t) ->
+    let b = f h in
+    let t' = filter<a>(f, t) in
+    match b with
+    | True -> Cons<a>(h, t')
+    | False -> t'
+    end
+  end
+
+(* l2 without l1  *)
+val remove<a> ((f: (a, a) -> bool), (l1: list<a>), (l2: list<a>)) : list<a> =
+  let g ((l, x):(list<a>, a)) =
+    let f = curry<a, a, bool> f in
+    let fx = f x in
+    let nfx = negate<a> fx in
+    filter<a>(nfx, l)
+  in
+  foldl<a, list<a>>(g, l2, l1)
 
 (* LIST_SK *)
 #endif

@@ -8,13 +8,9 @@ end
 
 module Spec (M:MONAD) = struct
   let map_empty = SMap.empty
-  type pbool = PFalse | PTrue
 
-  let map_elem (s, m) =
-    M.ret @@
-    match SMap.mem s m with
-    | false -> PFalse
-    | true -> PTrue
+  let internal_map_elem (s, m) =
+    M.ret @@ SMap.mem s m
 
   let map_find (s, m) =
     M.ret @@ SMap.find s m

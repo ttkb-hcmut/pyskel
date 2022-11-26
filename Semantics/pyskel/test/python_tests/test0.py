@@ -1,3 +1,5 @@
+#42
+
 z = 8
 def f():
     global z

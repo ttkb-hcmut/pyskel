@@ -4,6 +4,7 @@ open PyreAst
 module Inst(M:MONAD) = struct
   module rec Types : sig
     include Constant_inst.TYPE
+    include Bool_inst.TYPE
     include Heap_inst.TYPE
     include Map_inst.TYPE
   end = Types
@@ -11,6 +12,7 @@ module Inst(M:MONAD) = struct
   module Spec = struct
     include Semantics.Unspec(M)(Types)
     include Constant_inst.Spec(M)
+    include Bool_inst.Spec(M)
     include Map_inst.Spec(M)
     include Heap_inst.Spec(M)
   end

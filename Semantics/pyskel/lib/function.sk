@@ -1,0 +1,10 @@
+#ifndef FUNCTION_SK
+#define FUNCTION_SK
+
+val curry<a, b, c> (f: (a, b) -> c) : a -> b -> c =
+  \a:a -> \b:b -> f(a, b)
+
+val uncurry<a, b, c> (f: a -> b -> c) : (a, b) -> c =
+  \(a, b):(a, b) -> let fa = f a in fa b
+(* FUNCTION_SK *)
+#endif

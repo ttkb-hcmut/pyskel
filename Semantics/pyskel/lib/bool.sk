@@ -1,0 +1,48 @@
+#ifndef BOOL_SK
+#define BOOL_SK
+
+type internal_bool
+val internal_if<a> : (internal_bool, a, a) -> a
+
+type bool = | False | True
+
+val internal_eq<a> : (a, a) -> internal_bool
+val eq<a> (aa: (a, a)) : bool =
+  let f = from_internal_fun<(a, a)> internal_eq<a> in
+  f aa
+
+
+val not (b : bool) : bool =
+  match b with
+  | False -> True
+  | True -> False
+  end
+
+val and ((b1: bool), (b2: bool)) : bool =
+  match (b1, b2) with
+  | (True, True) -> True
+  | _ -> False
+  end
+
+val negate<a> (f: a -> bool) : a -> bool =
+  \a:a -> let res = f a in not res
+
+val negate_and_apply<a> ((f: a -> bool), (a: a)) : bool =
+  let nf = negate<a> f in
+  nf a
+
+
+val if<a> ((b: bool), (a1: a), (a2: a)) : a =
+  match b with
+  | True -> a1
+  | False -> a2
+  end
+
+val from_internal (b: internal_bool) : bool =
+  internal_if<bool> (b, True, False)
+
+val from_internal_fun<a> (f: a -> internal_bool) : a -> bool =
+  \a:a -> let fa = f a in from_internal fa
+
+(* BOOL_SK *)
+#endif

@@ -9,13 +9,17 @@ let print_flag flag =
   | Cont -> Printf.printf "Flag is %s\n" "Cont"
   | Exn _ -> Printf.printf "Flag is %s\n" "Exn"
 
-let _ =
-  (* Read file name from command line args *)
-  let file_name = "test.py" in
-
+let test_file file_name =
+  print_endline "------------";
+  print_endline file_name;
   (* Open file and get contents *)
   let file = open_in file_name in
-  let content = really_input_string file (in_channel_length file) in
+
+  (* Get the first line (expected result) *)
+  let first_line = input_line file in
+  let expected_result = int_of_string (String.sub first_line 1 (String.length first_line - 1)) in
+
+  let content = really_input_string file (in_channel_length file - String.length first_line - 1) in
   close_in file;
 
   (* Parse file *)
@@ -50,7 +54,9 @@ let _ =
           | Bool False -> Printf.printf "Result is False.\n"
           | None -> Printf.printf "Result is None.\n"
           | NotImplemented -> Printf.printf "Result is NotImplemented.\n"
-          | Int n -> Printf.printf "Result is %d\n" n
+          | Int n ->
+             Printf.printf "Result is %d\n" n;
+             Printf.printf "Expected result is %d\n" expected_result
           | String s -> Printf.printf "Result is \"%s\"\n" s
           | Fun(name, args, locals, _body, _scope_up) ->
             Printf.printf "Result is function %s(%s) with locals = (%s)\n"
@@ -60,3 +66,16 @@ let _ =
           | _ -> Printf.printf "Not able to understand your program yet"
         end
     end
+
+let _ =
+  (* Read file name from command line args *)
+  let test_directory = "python_tests" in
+
+  if Stdlib.not (Sys.is_directory test_directory) then
+      Printf.fprintf stderr "%s is not a directory" test_directory;
+
+  let files = Sys.readdir test_directory in
+  Sys.chdir test_directory;
+
+  Array.iter test_file files
+

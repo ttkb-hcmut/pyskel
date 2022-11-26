@@ -4,7 +4,7 @@
 
 (rule
  (target semantics_full.sk)
- (deps semantics.sk list.sk maybe.sk map.sk heap.sk)
+ (deps semantics.sk list.sk maybe.sk map.sk heap.sk bool.sk function.sk)
  (action
   (pipe-stdout
    (run cpp -traditional-cpp semantics.sk)
@@ -15,6 +15,12 @@
  (deps semantics_full.sk)
  (action
   (run necroml -o %{target} -d %{deps})))
+
+;; (rule
+;;   (target debug.ml)
+;;   (deps semantics_full.sk)
+;;   (action
+;;     (run necrodebug -o %{target} %{deps})))
 
 ;; for "unused rec flag" in eval
 (env
