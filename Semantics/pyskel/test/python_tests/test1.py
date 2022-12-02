@@ -1,9 +1,4 @@
 #42
-
-set = None
-incr = None
-get = None
-
 def foo():
     global set
     global incr
@@ -11,22 +6,18 @@ def foo():
 
     x = 0
 
-    def setf():
+    def set():
         nonlocal x
         x = 0
 
-    def incrf():
+    def incr():
         nonlocal x
         x = 42
 
-    def getf():
+    def get():
         nonlocal x
         return x
 
-
-    set = setf
-    incr = incrf
-    get = getf
     return get
 
 

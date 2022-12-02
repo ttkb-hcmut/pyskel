@@ -169,17 +169,17 @@ type flag =
   | Exn addr
 
 
-type scopeHeap = heap<scope>
-val scopeHeapAlloc : (scopeHeap, scope) -> (scope_id, scopeHeap)
+type scope_heap = heap<scope>
+val scopeHeapAlloc : (scope_heap, scope) -> (scope_id, scope_heap)
   = heapAlloc<scope>
-val scopeHeapRead : (scopeHeap, scope_id) -> (scope, scopeHeap)
+val scopeHeapRead : (scope_heap, scope_id) -> (scope, scope_heap)
   = heapRead<scope>
-val scopeHeapWrite : (scopeHeap, scope_id, scope) -> ((), scopeHeap)
+val scopeHeapWrite : (scope_heap, scope_id, scope) -> ((), scope_heap)
   = heapWrite<scope>
 
 
 (* Evaluation Monad *)
-type s = (global_scope: global_scope, heap: pythonHeap, scope_heap: scopeHeap)
+type s = (global_scope: global_scope, heap: pythonHeap, scope_heap: scope_heap)
 
 type exn<a> =
   | Cur a
