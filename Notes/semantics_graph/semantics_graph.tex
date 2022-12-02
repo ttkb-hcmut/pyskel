@@ -1,0 +1,75 @@
+\documentclass[french, 11pt]{standalone}
+
+\usepackage[T1]{fontenc}
+
+\usepackage{lmodern}
+\usepackage{tikz}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{babel}
+
+\begin{document}
+\begin{tikzpicture}
+  \node[below, draw, green!50!black] (NameError) at (-8, 10) {\texttt{raise NameError}};
+  \node[draw, densely dashed] (RaiseExn) at (-8, 8) {\texttt{raise} \textsf{exn}};
+  \node[draw] (IsInstance) at (-4.5, 8.5) {\texttt{isinstance}};
+  \node[draw] (IsSubclass) at (-4.5, 7.5) {\texttt{issubclass}};
+  \node[draw] (ExnCall) at (-8, 6) {\texttt{\(\at_{exc}()\)}};
+  \node[draw, densely dashed] (FunCall) at (-8, 4) {\(e_{c}(e_{1}, \ldots, e_{n})\)};
+  \node[draw] (HasAttribute) at (-12.5, 4) {\texttt{hasattr}};
+  \node[draw] (TypeCall) at (-8, 2) {type(\(\at_{c}\))\texttt{.\_\_call\_\_(}\(\at_{c}, \at_{1},\ldots,\at_{n}\)\texttt{)}};
+  \node[draw, densely dashed] (TypeCallRule) at (-8, 0) {\texttt{type.\_\_call\_\_}\((self, arg_1, \ldots, arg_{n})\)};
+  \node[draw] (TypeInclusion) at (-8, -2) {\(type(\at_{new})\not\sqsubseteq \at_{self}\)};
+  \node[draw] (SelfNew) at (-18, 0) {\(\at_{self}\)\texttt{.\_\_new\_\_}\((\at_{1}, \ldots, \at_{2})\)};
+  \node[draw] (SelfInit) at (-14, -2) {\(\at_{self}\)\texttt{.\_\_init\_\_}\((\at_{new},\at_{1}, \ldots, \at_{2})\)};
+  \node[draw] (NewAndInit) at (-17, -4) {Defined in 6.3.1, figure 6.30};
+  \node[draw, densely dashed] (DefTypeInclusion) at (-8, -4) {\(\mathsf{Class}(c_{1})\sqsubseteq\mathsf{Class}(c_{2}) \overset{\mathrm{def}}{=} c_{2} \in mro(c_{1})\)};
+  \node[draw] (FindMro) at (-8, -6) {\(mro\) is part of the \textsf{Class} ObjN};
+  \node[draw] (ComputeMro) at (-8, -8) {Computed in \texttt{type.\_\_new\_\_(...)}, figure 6.38};
+  \node[draw, red!70!black] (ComputeMroNotDefined) at (-8, -10) {\emph{compute\_mro} is not defined};
+  \node[draw] (InstanceCheck) at (2, 8.5) {type\((\at_{cls})\)\texttt{.\_\_instancecheck\_\_}\((\at_{cls},\at_{obj})\)};
+  \node[draw] (SubclassCheck) at (2, 7.5) {type\((\at_{cls})\)\texttt{.\_\_subclasscheck\_\_}\((\at_{cls},\at_{obj})\)};
+  \node[draw, densely dashed] (HasAttrRule) at (-17, 6) {hasattr\((obj, attr)\)};
+  \node[draw] (ObjDotAttr) at (-17, 3) {\(\at_{obj}.\at_{attr}\)};
+  \node[draw, densely dashed] (DotRule) at (-20, 3) {\(x.s\)};
+  \node[draw] (MroSearch) at (-23, 3) {\texttt{mro\_search}};
+  \node[draw] (GetHasField) at (-23, 1) {\texttt{get\_field}, \texttt{has\_field}};
+  \node[draw, red!70!black] (GetBuiltinField) at (-23, -1) {\texttt{get\_builtin\_field}};
+  \node[draw] (MetaIsType) at (1, -8) {\texttt{meta} is \texttt{type} by default (6.2.11)};
+
+  \draw[->, >=stealth] (NameError) -- (RaiseExn);
+  \draw[->, >=stealth] (RaiseExn.north east) to[bend left=25] (IsInstance.west);
+  \draw[->, >=stealth] (RaiseExn.south east) to[bend right=25] (IsSubclass.west);
+  \draw[->, >=stealth] (RaiseExn) -- (ExnCall);
+  \draw[->, >=stealth] (ExnCall) -- (FunCall);
+  \draw[->, >=stealth] (FunCall) -- (HasAttribute);
+  \draw[->, >=stealth] (FunCall) -- (TypeCall);
+  \draw[->, >=stealth] (TypeCall) -- (TypeCallRule);
+  \draw[->, >=stealth] (TypeCallRule) -- (TypeInclusion);
+  \draw[->, >=stealth] (TypeCallRule.west) to[bend right=40] (SelfNew);
+  \draw[->, >=stealth] (TypeCallRule) to[bend right=13] (SelfInit);
+  \draw[->, >=stealth] (SelfNew) to[bend right=30] (NewAndInit);
+  \draw[->, >=stealth] (SelfInit) to[bend left=-13] (NewAndInit);
+  \draw[->, >=stealth] (TypeInclusion) -- (DefTypeInclusion);
+  \draw[->, >=stealth] (DefTypeInclusion) -- (FindMro);
+  \draw[->, >=stealth] (FindMro) -- (ComputeMro);
+  \draw[->, >=stealth] (ComputeMro) -- (ComputeMroNotDefined);
+  \draw[->, >=stealth] (ComputeMro) -- (MetaIsType);
+
+  \draw[->, >=stealth] (IsInstance) -- (InstanceCheck);
+  \draw[->, >=stealth, rounded corners=50] (InstanceCheck.east) -- ++(1, -2) to[bend left=30] (TypeInclusion.east);
+
+  \draw[->, >=stealth] (IsSubclass) -- (SubclassCheck);
+  \draw[->, >=stealth] (SubclassCheck) to[bend left=30] (TypeInclusion.east);
+
+  \draw[->, >=stealth] (HasAttribute) to[bend left=30] (HasAttrRule);
+  \draw[->, >=stealth] (HasAttrRule) to[bend left=90] (IsInstance);
+  \draw[->, >=stealth, rounded corners=8] (HasAttribute) |- (ObjDotAttr);
+  \draw[->, >=stealth] (ObjDotAttr) -- (DotRule);
+  \draw[->, >=stealth] (DotRule) -- (MroSearch);
+  \draw[densely dotted, ->] (DotRule) -- ++(0, 1.5) node[above]{\texttt{isinstance}};
+
+  \draw[->, >=stealth] (MroSearch) -- (GetHasField);
+  \draw[->, >=stealth] (GetHasField) -- (GetBuiltinField);
+\end{tikzpicture}
+\end{document}

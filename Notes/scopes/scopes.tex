@@ -1,0 +1,399 @@
+\documentclass[a4paper, french, 11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[left=3cm, right=3cm, top=1.5cm, bottom=3cm]{geometry}
+\usepackage{lmodern}
+\usepackage{xspace}
+\usepackage{varioref}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{siunitx}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{tikz}
+\usepackage{amssymb}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{euler}
+\usepackage[many]{tcolorbox}
+\usepackage{babel}
+\usepackage{listings}
+\usepackage{biblatex}
+\usepackage{csquotes}% Recommended
+
+% LISTING CONFIG
+\newtoggle{InString}{}% Keep track of if we are within a string
+\togglefalse{InString}% Assume not initally in string
+\newcommand*{\ColorIfNotInString}[1]{\iftoggle{InString}{#1}{\color{green!60!black}#1}}%
+\newcommand*{\ProcessQuote}[1]{#1\iftoggle{InString}{\global\togglefalse{InString}}{\global\toggletrue{InString}}}%
+\lstset{
+  literate=
+  {0}{{{\ColorIfNotInString{0}}}}1
+  {1}{{{\ColorIfNotInString{1}}}}1
+  {2}{{{\ColorIfNotInString{2}}}}1
+  {3}{{{\ColorIfNotInString{3}}}}1
+  {4}{{{\ColorIfNotInString{4}}}}1
+  {5}{{{\ColorIfNotInString{5}}}}1
+  {6}{{{\ColorIfNotInString{6}}}}1
+  {7}{{{\ColorIfNotInString{7}}}}1
+  {8}{{{\ColorIfNotInString{8}}}}1
+  {9}{{{\ColorIfNotInString{9}}}}1
+}
+\lstset{
+  literate=
+  {á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+  {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+  {à}{{\`a}}1 {è}{{\`e}}1 {ì}{{\`i}}1 {ò}{{\`o}}1 {ù}{{\`u}}1
+  {À}{{\`A}}1 {È}{{\'E}}1 {Ì}{{\`I}}1 {Ò}{{\`O}}1 {Ù}{{\`U}}1
+  {ä}{{\"a}}1 {ë}{{\"e}}1 {ï}{{\"i}}1 {ö}{{\"o}}1 {ü}{{\"u}}1
+  {Ä}{{\"A}}1 {Ë}{{\"E}}1 {Ï}{{\"I}}1 {Ö}{{\"O}}1 {Ü}{{\"U}}1
+  {â}{{\^a}}1 {ê}{{\^e}}1 {î}{{\^i}}1 {ô}{{\^o}}1 {û}{{\^u}}1
+  {Â}{{\^A}}1 {Ê}{{\^E}}1 {Î}{{\^I}}1 {Ô}{{\^O}}1 {Û}{{\^U}}1
+  {œ}{{\oe}}1 {Œ}{{\OE}}1 {æ}{{\ae}}1 {Æ}{{\AE}}1 {ß}{{\ss}}1
+  {ű}{{\H{u}}}1 {Ű}{{\H{U}}}1 {ő}{{\H{o}}}1 {Ő}{{\H{O}}}1
+  {ç}{{\c c}}1 {Ç}{{\c C}}1 {ø}{{\o}}1 {å}{{\r a}}1 {Å}{{\r A}}1
+  {€}{{\EUR}}1 {£}{{\pounds}}1
+}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\lstdefinestyle{myStyle}{
+  backgroundcolor=\color{backcolour},
+  commentstyle=\color{blue!50!white},
+  keywordstyle=\color{orange},
+  numberstyle=\small\selectfont\color{codegray},
+  stringstyle=\color{red!80!orange},
+  basicstyle=\ttfamily\small\selectfont,
+  breakatwhitespace=false,
+  breaklines=true,
+  captionpos=b,
+  keepspaces=true,
+  numbers=left,
+  numbersep=5pt,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  tabsize=4,
+  xleftmargin=.025\textwidth,
+  xrightmargin=.025\textwidth
+}
+
+\addbibresource{refs.bib}% Syntax for version >= 1.2
+
+\newtheoremstyle{break}
+{}{}
+{}{}
+{\bfseries}{}
+{\newline}{}
+\theoremstyle{break}
+\newtheorem{Question}{Question}
+
+
+\newcommand{\po}{\left(}
+\newcommand{\pf}{\right)}
+
+\date{}
+\title{Gestion des scopes pour Python}
+\author{Martin \textsc{Andrieux}}
+
+\begin{document}
+\maketitle
+
+\section{Gestion des scopes dans la thèse de Raphaël Monat}
+Dans la thèse, il y a un unique environnement \(\mathcal E \overset{def}{=} \mathsf{Id} \rightharpoonup \mathsf{Addr} \cup \mathtt{LocalUndef}\).
+Les mots clés \texttt{global} et \texttt{nonlocal} ne sont pas supportés.
+Une analyse est faite pendant le parsing pour détecter les variables non déclarées.
+
+Nous souhaitons gérer différemment les portées des variables (scopes), afin de pouvoir utiliser \texttt{global} et \texttt{nonlocal}.
+Nous expliquons notre approche dans la section \vref{pyskel}, après une brève explication des scopes en Python.
+
+\section{Scopes en Python}
+Nous détaillons dans cette section les principaux aspects de la gestion des scopes en python à travers divers exemples.
+
+Les variables et fonctions définies en dehors de toute fonction/classe sont dans le \emph{scope global}.
+
+Dans le corps d'une fonction, le scope de contient que les variables locales, essayer de modifier une variable globale mènera à la création d'une nouvelle variable locale à la fonction.
+Par exemple, dans le programme de la figure \vref{fresh_scope}, la variable globale \texttt{x} est toujours égale à \texttt{42} après l'appel de \texttt{f}.
+
+\begin{figure}[h]
+  \centering
+  \begin{minipage}{0.5\linewidth}
+\begin{lstlisting}[style=myStyle, language=python]
+  x = 42 # Global x
+
+  def f():
+    x = 0 # x is local to f
+
+  f()
+  print(x) # => 42\end{lstlisting}
+\end{minipage}
+\caption{\label{fresh_scope}La valeur de \texttt{x} (global) reste inchangée après l'appel de \texttt{f}}
+\end{figure}
+
+Il est néanmoins possible d'accéder à des variables globales depuis le corps des fonctions grâce à l'instruction \texttt{global}, comme démontré figure \vref{global_keyword}.
+
+\begin{figure}[h]
+  \centering
+  \begin{minipage}{0.7\linewidth}
+\begin{lstlisting}[style=myStyle, language=python]
+  x = 42 # Global x
+
+  def f():
+    # Says "The x i'm using is the global x"
+    global x
+    x = 0
+
+  f()
+  print(x) => 0
+\end{lstlisting}
+  \end{minipage}
+  \caption{\label{global_keyword}Utilisation du mot clé \texttt{global}}
+\end{figure}
+
+Finalement, le mot clé \texttt{nonlocal} permet d'accéder au scope \og au dessus\fg{} en cas de fonctions imbriquées, voir figure \vref{nonlocal_keyword}.
+
+\begin{figure}[h]
+  \centering
+  \begin{minipage}{0.7\linewidth}
+\begin{lstlisting}[style=myStyle, language=python, morekeywords={nonlocal}]
+def g():
+  x = 42 # x is not global (it's local to g)
+
+  def f():
+    # global x will fail
+    # We use the x of g
+    nonlocal x
+    x = 0
+
+  f()
+  print(x)
+
+g() => 0
+\end{lstlisting}
+  \end{minipage}
+  \caption{\label{nonlocal_keyword}Utilisation du mot clé \texttt{nonlocal}}
+\end{figure}
+
+Notez que \texttt{nonlocal} peut remonter plusieurs fonction pour trouver la variable déclarée.
+
+Sachant tout cela, il est possible de partager de la mémoire entre fonctions, comme illustré figure \vref{shared_memory}.
+Les deux fonctions \texttt{init} et \texttt{incr} modifient la même zone mémoire, à savoir la variable \texttt{x} locale à \texttt{g}.
+\begin{figure}[h]
+  \centering
+  \begin{minipage}{0.7\linewidth}
+\begin{lstlisting}[style=myStyle, language=python, morekeywords={nonlocal}]
+def g():
+  x = 42
+
+  def init():
+    nonlocal x
+    x = 0
+
+  def incr():
+    nonlocal x
+    x += 1
+
+  return (init, get)
+\end{lstlisting}
+  \end{minipage}
+  \caption{\label{shared_memory}Partage de mémoire entre sous-fonctions}
+\end{figure}
+
+\section{\label{pyskel}Gestion des scopes dans pyskel}
+\subsection{Types}
+
+Nous découpons l'environnement initial (celui de la thèse de Raphaël Monat), en un environnement et un scope.
+
+\begin{itemize}
+  \item L'environnement associe les noms de variables à une portée (\texttt{Local}, \texttt{Nonlocal} ou \texttt{Global})
+  \item Le scope associe les identifiant à une adresse dans le tas. Il contient également le scope supérieur s'il existe.
+\end{itemize}
+
+Ainsi, pour retrouver l'adresse associée à un identifiant, nous commençons par regarder le scope de ce dernier (contenu dans l'environnement).
+\begin{itemize}
+  \item S'il est local, nous regardons dans le scope local
+  \item s'il est global, nous regardons dans le scope global
+  \item s'il est nonlocal, nous regardons récursivement dans les scopes au dessus.
+\end{itemize}
+
+Nous définissons donc les types suivants:
+\begin{lstlisting}[style=myStyle, language=caml]
+type var_scope =
+  | Local
+  | NonLocal
+  | Global
+
+(* String map *)
+type map<_>
+(* Heaps map addr to values *)
+type heap<_>
+type heap_addr<_>
+
+type scope_id = heap_addr<scope>
+
+(* Read-only *)
+type env =
+  | Globl
+  | InFun (map<var_scope>, scope_id)
+
+type scope_heap = heap<scope>
+
+type scope =
+  ( scope_up: maybe<scope_id>
+  , mapping: map<maybe<addr>>
+  )
+\end{lstlisting}
+
+En plus de celà, nous définissions un scope global. Nous utilisons directement des \texttt{addr} car il n'y a jamais d'initialisation à \texttt{LocalUndef} (représenté par \texttt{Nothing}) dans le scope global.
+\begin{lstlisting}[style=myStyle, language=caml, firstnumber=17]
+type global_scope = map<addr>
+\end{lstlisting}
+
+L'état interne de notre interpréteur est alors défini comme suit:
+\begin{lstlisting}[style=myStyle, language=caml]
+(* Read only state *)
+type r = (local_env: env, ...)
+
+(* Read Write state *)
+type s =
+  ( global_scope: global_scope
+  , scope_heap: scope_heap
+  , ...
+  )
+\end{lstlisting}
+
+Les mappings vers les adresses ne peuvent pas être en lecture seule car ils sont modifiés lors des assignations.
+
+L'utilisation d'un tas de scope est nécessaire au partage de mémoire.
+En effet, dans l'exemple de la figure \vref{shared_memory}, les scopes de \texttt{init} et \texttt{incr} possèdent le même \texttt{scope\_up}, et font donc effectivement référence à la même zone mémoire.
+Nous allouons donc les scopes, comme nous allouons des valeurs python (strings entiers, fonctions, \dots).
+
+\subsection{Recherche d'une valeur}
+La fonction \texttt{readEnv : id -> m<addr>} permet d'obtenir l'adresse correspondant à l'identifiant passé en paramètre.
+Une version simplifiée est donnée figure \vref{readEnv}.
+
+\begin{figure}[h]
+  \centering
+  \begin{minipage}{\textwidth}
+\begin{lstlisting}[style=myStyle, language=caml]
+val readEnv (id:id) : m<addr> =
+  let r =@ ask in
+  match r.local_env with
+  | Globl ->
+  (* We are in the global env, we just look for the variable in the global map *)
+    find_global id
+  | InFun (e, scope_id) ->
+  (* We are evaluating a function, we refer to the local environment *)
+    let scope_var = map_lookup<var_scope> (id, e) in
+    match scope_var with
+    | Nothing ->
+    (* Not in env, but it's a read, so we lookup upper scopes *)
+      let ma =@ find_nonlocal (id, scope_id) in
+      match ma with
+      | Nothing -> find_global id
+      | Just (Just a) -> ret a
+      | Just Nothing -> fail "Out of scope"
+      end
+    (* Look in the right scope *)
+    | Just Local ->
+        let (Just a) =@ find_local (id, scope_id) in
+        match a with
+        | Just a -> ret a
+        (* LocalUndef *)
+        | Nothing -> fail "id is bound to LocalUndef"
+        end
+    | Just NonLocal ->
+        let Just (Just a) =@ find_nonlocal (id, scope_id) in
+        ret a
+    | Just Global -> find_global id
+    end
+  end
+\end{lstlisting}
+  \end{minipage}
+  \caption{\label{readEnv}Fonction \texttt{readEnv}}
+\end{figure}
+
+La fonction \texttt{find\_local} regarde si l'identifiant est dans le scope local, et renvoie l'adresse associée. \texttt{find\_nonlocal} fait de même de manière récursive dans les sous environnements.
+
+La fonction \texttt{writeEnv} est très similaire à \texttt{readEnv}, la tâche difficile étant de trouver la bonne occurrence de l'identifiant dans le scope.
+
+\subsection{Définition de fonction}
+Lors de la définition d'une fonction, nous devons capturer l'identifiant du scope courant, contenu dans l'environnement en lecture seule.
+\begin{lstlisting}[style=myStyle, language=caml]
+  | SFunctionDef (name, args, body) ->
+    let bodyLocals = locals body in
+    let e =@ ask in
+    let scope_up =
+      match e.local_env with
+      | Globl -> Nothing<scope_id>
+      | InFun(_, sid) -> Just<scope_id> sid
+      end in
+    let f = Fun(name, args, bodyLocals, body, scope_up) in
+    let addr =@ alloc (f, Locked) in
+    writeEnv (name, addr)
+\end{lstlisting}
+
+\subsection{Appel de fonction}
+L'appel de fonction nécessite d'allouer un nouveau scope (le scope courant dans le corps de la fonction).
+Ce scope aura comme \og supérieur\fg{} le scope contenu dans l'objet \texttt{Fun}.
+
+Il suffit ensuite de lancer l'évaluation de la fonction en modifiant localement l'état en lecture seule. Les annotations de types ont été retirées pour plus de lisibilité.
+
+\begin{lstlisting}[style=myStyle, language=caml]
+  | Call(e_c, args) ->
+    let r =@ ask in
+    (* Eval the function *)
+    let at_c =@ eval_expr e_c in
+    let (Fun(_, a, loc, body, scope_up), _) =@ read at_c in
+
+    (* Eval and set the arguments *)
+    let at_args =@ mapM (eval_expr, args) in
+    let args_with_values = zip (a, at_args) in
+
+    (* Set the local variables to LocalUndef *)
+    let locals_undef =
+      let f ((m, s):(map, id)) = map_insert (s, Nothing, m) in
+      foldl (f , map_empty , loc) in
+    let locals_with_args =
+      let f ((m, (s, a)):(map, (id, addr))) = map_insert (s, Just a, m) in
+      foldl (f , locals_undef , args_with_values) in
+
+    (* Scope Allocation *)
+    let inner_scope = (scope_up = scope_up, mapping = locals_with_args) in
+    let inner_scope_id =@ allocScope inner_scope in
+
+    let non_locals = nonlocals body in
+    let global_vars = globals body in
+    let all_locals = append (loc, a) in
+    let fun_env =
+      let is_local ((m, s):(map, id)) = map_insert (s, Local, m) in
+      let is_nonlocal ((m, s):(map, id)) = map_insert (s, NonLocal, m) in
+      let is_global ((m, s):(map, id)) = map_insert (s, Global, m) in
+      let m = foldl (is_local , map_empty , all_locals) in
+      let m' = foldl (is_nonlocal, m, non_locals) in
+      foldl (is_global, m', global_vars) in
+
+    let set_locals = \_:r ->
+      let local_env' = InFun (fun_env, inner_scope_id) in
+      r <- (local_env = local_env')
+    in
+
+    let bodyEvaluation = (
+      eval_stmts body ;@
+      return r.builtins.none
+    ) in
+
+    let localBodyEval = local (set_locals, bodyEvaluation) in
+
+    let catchReturn = \f:flag ->
+      match f with
+      | Ret a -> return a
+      | f -> setFlag f
+      end in
+
+    (* Eval the body of the function *)
+    catchFlag (localBodyEval, catchReturn)
+  end
+\end{lstlisting}
+
+\end{document}
