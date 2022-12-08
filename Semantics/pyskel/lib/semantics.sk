@@ -7,6 +7,7 @@
 
 (* General String map *)
 type id
+val someId : id
 
 val debug : () -> ()
 
@@ -22,6 +23,8 @@ type stmt =
   | SDel id
   | SReturn expr
   | SFunctionDef (id, list<id>, list<stmt>)
+  (*         name,       args,           kwargs,       body *)
+  | SClassDef (id, list<expr>, list<(id, expr)>, list<stmt>)
   | SNonlocal id
   | SGlobal id
 
@@ -49,7 +52,7 @@ type objN =
   (* Fun (name, args, locals, body) *)
   | Fun (id, list<id>, list<id>, list<stmt>, maybe<scope_id>)
   | Method (addr, addr)
-  | Class (id, list<id>, id, stmt)
+  | Class (id, list<id>, id, list<stmt>)
   | Inst addr
 
 type objS =
@@ -397,6 +400,18 @@ val globals (ss: list<stmt>) : list<id> =
   | Cons(_, ss') -> nonlocals ss'
   end
 
+val declarations (ss: list<stmt>) : map<stmt> =
+  match ss with
+  | Nil -> map_empty<stmt>
+  | Cons(SFunctionDef(id, args, body), ss') ->
+    let m = declarations ss' in
+    map_insert<stmt> (id, SFunctionDef(id, args, body), m)
+  | Cons(SAssign(id, e), ss') ->
+    let m = declarations ss' in
+    map_insert<stmt> (id, SAssign(id, e), m)
+  | Cons(_, ss') -> declarations ss'
+  end
+
 val eval_stmts (ss: list<stmt>) : m<()> =
   mapM<stmt, ()> (eval_stmt, ss) ;@
   return<()> ()
@@ -433,6 +448,15 @@ val eval_stmt (s: stmt) : m<()> =
     let f = Fun(name, args, bodyLocals, body, scope_up) in
     let addr =@ alloc (f, Locked) in
 	  writeEnv (name, addr)
+  | SClassDef (name, args, kwargs, body) ->
+    let bodyEval = eval_stmts body in
+    let dict = declarations body in
+    (* let call = Call (meta, Cons(name, Nil)) in *)
+    (* let stmt = (SAssign (name, call)) in *)
+    (* eval_stmt stmt *)
+    let c = Class(name, Nil<id>, someId, body) in
+    let addr =@ alloc (c, Locked) in
+    writeEnv (name, addr)
   | SNonlocal _ -> return<()> ()
   | SGlobal _ -> return<()> ()
   end

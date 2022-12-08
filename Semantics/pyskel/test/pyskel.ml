@@ -63,6 +63,8 @@ let test_file file_name =
               name
               (Stdlib.List.fold_left (fun s p -> s ^ p ^ ", ") "" @@ Utils.to_standard_list args)
               (Stdlib.List.fold_left (fun s p -> s ^ p ^ ", ") "" @@ Utils.to_standard_list locals)
+          | Class(name, _, _, _) ->
+            Printf.printf "Result is class %s" name
           | _ -> Printf.printf "Not able to understand your program yet"
         end
     end

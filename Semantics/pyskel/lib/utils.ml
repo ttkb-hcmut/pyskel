@@ -60,6 +60,10 @@ let translate_arguments ({args = args; _} : Concrete.Arguments.t)
   : Concrete.Identifier.t Stdlib.List.t =
   Stdlib.List.map translate_argument args
 
+let translate_keyword ({arg; value; _} : Concrete.Keyword.t)
+  : id * expr =
+  (Concrete.Identifier.to_string @@ Option.get arg, translate_expr value)
+
 let rec translate_stmt (s : Concrete.Statement.t) : stmt =
   match s with
   | Concrete.Statement.Expr {value = e ; _} ->
@@ -90,6 +94,11 @@ let rec translate_stmt (s : Concrete.Statement.t) : stmt =
     SNonlocal (Concrete.Identifier.to_string id)
   | Concrete.Statement.Global {names = [id]; _} ->
     SGlobal (Concrete.Identifier.to_string id)
+  | Concrete.Statement.ClassDef {name; bases; keywords; body; _} ->
+    SClassDef(Concrete.Identifier.to_string name,
+              to_pyskel_list @@ Stdlib.List.map translate_expr bases,
+              to_pyskel_list @@ Stdlib.List.map translate_keyword keywords,
+              to_pyskel_list @@ Stdlib.List.map translate_stmt body)
   | _ -> failwith "statement not specified yet"
 
 
