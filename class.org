@@ -1,0 +1,36 @@
+#+begin_src python :results output
+class Foo():
+    share = 3
+    def __init__(self):
+       self.x = Foo.share
+
+    def bar(self):
+        self.y = 5
+
+    def incr(self):
+        Foo.share = Foo.share + 1
+
+test = Foo()
+print(type.__getattribute__(Foo,'share'))
+print(type.__getattribute__(Foo,'bar'))
+print(Foo.bar)
+print(test.bar)
+test.incr()
+print(test.x)
+test.bar()
+Foo.bar(test)
+print(test.y)
+print(test.share)
+test2 = Foo()
+print(test2.share)
+#+end_src
+
+#+RESULTS:
+: 3
+: <function Foo.bar at 0x101012170>
+: 3
+: 5
+: 4
+: <function Foo.bar at 0x101012170>
+: <bound method Foo.bar of <__main__.Foo object at 0x10109ffd0>>
+: 4
