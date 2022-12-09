@@ -27,10 +27,10 @@ print(test2.share)
 
 #+RESULTS:
 : 3
-: <function Foo.bar at 0x101012170>
+: <function Foo.bar at 0x10124e170>
+: <function Foo.bar at 0x10124e170>
+: <bound method Foo.bar of <__main__.Foo object at 0x1012dbfd0>>
 : 3
 : 5
 : 4
-: <function Foo.bar at 0x101012170>
-: <bound method Foo.bar of <__main__.Foo object at 0x10109ffd0>>
 : 4
