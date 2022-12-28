@@ -23,8 +23,9 @@ let test_file file_name =
   close_in file;
 
   (* Parse file *)
-  let a = Parser.with_context @@ (fun context ->
-      Parser.Concrete.parse_module ~context content) in
+  let a = Parser.with_context (fun context ->
+      Parser.Concrete.parse_module ~context content
+  ) in
 
   (* Check for parse error *)
   Result.iter_error

@@ -1,6 +1,6 @@
 (library
  (name pyskel)
- (libraries necroml pyre-ast))
+ (libraries necroml pyre-ast js_of_ocaml))
 
 (rule
  (target semantics_full.sk)
@@ -16,11 +16,11 @@
  (action
   (run necroml -o %{target} -d %{deps})))
 
-;; (rule
-;;   (target debug.ml)
-;;   (deps semantics_full.sk)
-;;   (action
-;;     (run necrodebug -o %{target} %{deps})))
+;;(rule
+;;  (target debug.ml)
+;;  (deps semantics_full.sk)
+;;  (action
+;;    (run necrodebug -o %{target} %{deps})))
 
 ;; for "unused rec flag" in eval
 (env

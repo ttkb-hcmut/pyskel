@@ -57,7 +57,7 @@ type objN =
 
 type objS =
   | Locked
-  | Methods (pythonString -> addr)
+  | Methods map<addr>
 
 (* Read-only state, contains builtins *)
 type builtins = (true: addr, false: addr, none: addr, notImplemented: addr)
@@ -450,6 +450,8 @@ val eval_stmt (s: stmt) : m<()> =
 	  writeEnv (name, addr)
   | SClassDef (name, args, kwargs, body) ->
     let bodyEval = eval_stmts body in
+    (* Declarations: récupérer les adresses associées aux *)
+    (* définitions dans le tas après évaluation de body *)
     let dict = declarations body in
     (* let call = Call (meta, Cons(name, Nil)) in *)
     (* let stmt = (SAssign (name, call)) in *)
