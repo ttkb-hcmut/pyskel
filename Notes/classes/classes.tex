@@ -1,0 +1,204 @@
+\documentclass[a4paper, french, 11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[left=3cm, right=3cm, top=1.5cm, bottom=3cm]{geometry}
+\usepackage{lmodern}
+\usepackage{xspace}
+\usepackage{varioref}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{siunitx}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{tikz}
+\usepackage{amssymb}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{babel}
+\usepackage{listings}
+\usepackage{csquotes}% Recommended
+
+% LISTING CONFIG
+\newtoggle{InString}{}% Keep track of if we are within a string
+\togglefalse{InString}% Assume not initally in string
+\newcommand*{\ColorIfNotInString}[1]{\iftoggle{InString}{#1}{\color{green!60!black}#1}}%
+\newcommand*{\ProcessQuote}[1]{#1\iftoggle{InString}{\global\togglefalse{InString}}{\global\toggletrue{InString}}}%
+\lstset{
+  literate=
+  {0}{{{\ColorIfNotInString{0}}}}1
+  {1}{{{\ColorIfNotInString{1}}}}1
+  {2}{{{\ColorIfNotInString{2}}}}1
+  {3}{{{\ColorIfNotInString{3}}}}1
+  {4}{{{\ColorIfNotInString{4}}}}1
+  {5}{{{\ColorIfNotInString{5}}}}1
+  {6}{{{\ColorIfNotInString{6}}}}1
+  {7}{{{\ColorIfNotInString{7}}}}1
+  {8}{{{\ColorIfNotInString{8}}}}1
+  {9}{{{\ColorIfNotInString{9}}}}1
+}
+\lstset{
+  literate=
+  {á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+  {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+  {à}{{\`a}}1 {è}{{\`e}}1 {ì}{{\`i}}1 {ò}{{\`o}}1 {ù}{{\`u}}1
+  {À}{{\`A}}1 {È}{{\'E}}1 {Ì}{{\`I}}1 {Ò}{{\`O}}1 {Ù}{{\`U}}1
+  {ä}{{\"a}}1 {ë}{{\"e}}1 {ï}{{\"i}}1 {ö}{{\"o}}1 {ü}{{\"u}}1
+  {Ä}{{\"A}}1 {Ë}{{\"E}}1 {Ï}{{\"I}}1 {Ö}{{\"O}}1 {Ü}{{\"U}}1
+  {â}{{\^a}}1 {ê}{{\^e}}1 {î}{{\^i}}1 {ô}{{\^o}}1 {û}{{\^u}}1
+  {Â}{{\^A}}1 {Ê}{{\^E}}1 {Î}{{\^I}}1 {Ô}{{\^O}}1 {Û}{{\^U}}1
+  {œ}{{\oe}}1 {Œ}{{\OE}}1 {æ}{{\ae}}1 {Æ}{{\AE}}1 {ß}{{\ss}}1
+  {ű}{{\H{u}}}1 {Ű}{{\H{U}}}1 {ő}{{\H{o}}}1 {Ő}{{\H{O}}}1
+  {ç}{{\c c}}1 {Ç}{{\c C}}1 {ø}{{\o}}1 {å}{{\r a}}1 {Å}{{\r A}}1
+  {€}{{\EUR}}1 {£}{{\pounds}}1
+}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\lstdefinestyle{myStyle}{
+  backgroundcolor=\color{backcolour},
+  commentstyle=\color{blue!50!white},
+  keywordstyle=\color{orange},
+  numberstyle=\small\selectfont\color{codegray},
+  stringstyle=\color{red!80!orange},
+  basicstyle=\ttfamily\small\selectfont,
+  breakatwhitespace=false,
+  breaklines=true,
+  captionpos=b,
+  keepspaces=true,
+  numbers=left,
+  numbersep=5pt,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  tabsize=4,
+  xleftmargin=.025\textwidth,
+  xrightmargin=.025\textwidth
+}
+
+
+\newtheoremstyle{break}
+{}{}
+{}{}
+{\bfseries}{}
+{\newline}{}
+\theoremstyle{break}
+\newtheorem{Question}{Question}
+
+
+\newcommand{\po}{\left(}
+\newcommand{\pf}{\right)}
+\newcommand{\python}{\textsc{Python}\xspace}
+
+\date{}
+\title{Gestion des classes en Python}
+\author{Martin Andrieux}
+
+\begin{document}
+\maketitle
+
+En Python tout est objet, cela peut rendre difficile la compréhension du mécanisme de création de classes, car elle fait elle-même intervenir des classes.
+
+Nous clarifions dans ce document les principaux mécanismes de l'orienté objet en Python, de la création de classe à l'appel de méthode.
+
+\section{Classe \texttt{type}}
+Une classe Python est une instance de la classe \texttt{type}.
+Ainsi, les deux déclarations suivantes sont équivalentes:
+
+\begin{lstlisting}[style=myStyle, language=python]
+class Foo:
+  x = 0
+
+class Foo():
+  x = 0
+
+Foo = type("Foo", (), {"x" : 0})
+\end{lstlisting}
+
+
+\section{Attributs}
+Chaque objet python possède des attributs.
+Par exemple, la classe \texttt{Foo} définie précédemment possède un attribut \texttt{x}, tout comme ses éventuelles instances.
+
+
+Ils sont récupérés dans la sémantique grâce à la fonction \texttt{\_\_getattribute\_\_}, elle même faisant appel à la fonction \textsf{get\_field} de la sémantique
+
+Notons la différence entre \og attributs\fg{} et \og champs\fg{}:
+\begin{itemize}
+  \item Les \emph{attributs} sont ce que nous manipulons couramment en Python: \texttt{Foo.x} accède à l'attribut \texttt{x} de l'objet \texttt{Foo}.
+    Cet accès peut inspecter les superclasses de \texttt{Foo} pour trouver celle qui possède le \emph{champ} \texttt{x}.
+  \item Les champs sont directement disponible dans la classe, et ne nécessitent pas d'inspections des superclasses pour être lu.
+    Les champs ne sont pas exposés en Python, mais ils sont utilisés dans la sémantique.
+    En particulier, se sont les champs qui sont stockés dans le tas à côté de l'objet (voir \textsf{ObjS} dans la sémantique).
+\end{itemize}
+
+Les expressions suivantes sont équivalentes:
+\begin{lstlisting}[style=myStyle, language=python]
+Foo.x
+type(Foo).__getattribute__(Foo, "x")
+type.__getattribute__(Foo, "x")
+\end{lstlisting}
+
+Nous devons donc être capables de retrouver le type d'un objet, pour appeler la méthode \texttt{\_\_getattribute\_\_}.
+Cette opération est décrite dans la sémantique (figure 6.7) et est particulièrement simple pour les instances (le type y est directement stocké).
+
+Notons également que \texttt{type.\_\_getattribute\_\_} ne doit pas appeler \texttt{getattribute}, il s'agit d'un cas particulier défini dans la sémantique.
+
+Certains champs ne sont pas stockés dans \textsf{ObjS}.
+Ces champs sont dits \og builtin\fg{} et sont récupérés grâce à la fonction \textsf{get\_builtin\_field}.
+
+\section{Superclasses}
+Les superclasses sont stockées sous la forme d'une liste de classes, l'ordre des classes dans cette liste est déterminé par \textsf{compute\_mro} (\emph{mro} pour \og Method Resolution Order\fg{})
+Il semble s'agir d'un parcours en profondeur de l'arbre d'héritage.
+La recherche d'un attribut se fait en parcourant les superclasses dans l'ordre \emph{mro}.
+
+\section{Méthodes}
+Une classe contient un ensemble de déclarations, comme la déclaration de \texttt{x} de la classe \texttt{Foo}.
+Il est bien sûr possible de déclarer des fonctions, et de les utiliser comme méthodes dans le code.
+Toutes ces déclarations sont stockés dans un champs spécial de l'\textsf{ObjN} \textsf{Class}, il s'agit d'un dictionnaire liant les noms aux adresses.
+
+% NOTE:
+% Pourquoi ne pas voir ces dictionnaires comme des scopes ?
+% Une classe définirait son propre scope, constitué des champs statiques.
+% Les superclasses peuvent ainsi être représentées par des `scope_up` (à condition de transformer scope_up en une liste de scopes)
+% Fonctionne aussi sans modifier le scope, en stockant les superclasses dans l'ObjN class
+
+Une méthode est une fonction accompagnée de son premier paramètre.
+Une méthode est l'application du premier paramètre d'une fonction.
+Dans le cas des fonctions de classes, le paramètre \texttt{self} est passé.
+Cela permet de l'appliquer de manière transparente lorsque le reste des arguments est passé à la méthode.
+Le type \texttt{method} surcharge donc la méthode \texttt{\_\_call\_\_} de la manière suivante:
+\begin{lstlisting}[style=myStyle, language=python]
+Method(arg1, fun).__call__(*args):
+    return f(arg1, *args)
+\end{lstlisting}
+
+Les méthodes sont créées avec la fonction \texttt{\_\_get\_\_} du type \texttt{function}.
+Il y a équivalence entre les deux dernières expressions du morceau de code suivant:
+\begin{lstlisting}[style=myStyle, language=python]
+class Foo:
+    def bar:
+        pass
+
+a.bar
+Foo.bar.__get__(a)
+\end{lstlisting}
+
+L'appel à \texttt{\_\_get\_\_} implique une allocation mémoire pour stocker la méthode fraîchement créée.
+Il y a donc une allocation par occurrence de \texttt{a.bar} dans le code.
+
+
+\section{Concrètement, dans la sémantique skel}
+Pour une déclaration de classe, nous devons évaluer le corps de la classe en récupérant toutes les déclarations.
+Ces déclarations sont stocké dans un dictionnaire liant les identifiants aux adresses.
+Cela doit pouvoir se faire aisément en utilisant le système de scopes: nous créons un nouveau scope pour l'évaluation du corps de la fonction et récupérons toutes les entrées qu'il contient.
+Nous obtenons alors directement le dictionnaire souhaité.
+
+La création d'instance est simple, puisqu'il s'agit simplement d'une référence à la classe.
+Les attributs locaux (propres à une instance) sont dans l'\textsf{ObjS} de l'instance, le dictionnaire est initialement vide, puis peuplé par \texttt{\_\_init\_\_}, et les autres méthodes.
+
+La création de méthodes est simple, il faudra généralisé l'appel de fonction aux classes implémentant la méthode \texttt{\_\_call\_\_}.
+
+Le calcul du \emph{mro} n'est pas une priorité, il suffira de modifier la fonction \texttt{getattribute} pour inspecter les superclasses.
+
+
+\end{document}
