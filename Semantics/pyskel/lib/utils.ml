@@ -105,3 +105,26 @@ let rec translate_stmt (s : Concrete.Statement.t) : stmt =
 let translate_ast (m: Concrete.Module.t) : stmt list =
   match m with
   | {Concrete.Module.body = stmts; _} -> to_pyskel_list @@ Stdlib.List.map translate_stmt stmts
+
+
+module SMap = Map.Make(String)
+let show_dict (dict: addr SMap.t) =
+  "{" ^ (Stdlib.String.concat ", " @@ Stdlib.List.map fst @@ SMap.bindings dict) ^ "}"
+
+let show_objn (x: objN) =
+  match x with
+  | Bool True -> "True"
+  | Bool False -> "False"
+  | None -> "None"
+  | NotImplemented -> "NotImplemented"
+  | Int n ->
+     Printf.sprintf "%d" n;
+  | String s -> Printf.sprintf "\"%s\"" s
+  | Fun(name, args, locals, _body, _scope_up) ->
+    Printf.sprintf "function %s(%s) with locals = (%s)\n"
+      name
+      (Stdlib.List.fold_left (fun s p -> s ^ p ^ ", ") "" @@ to_standard_list args)
+      (Stdlib.List.fold_left (fun s p -> s ^ p ^ ", ") "" @@ to_standard_list locals)
+  | Class(name, _, _, dict) ->
+    Printf.sprintf "class %s %s" name (show_dict dict)
+  | _ -> Printf.sprintf "Unknown"

@@ -112,6 +112,7 @@ Nous détaillons dans cette section les principaux aspects de la gestion des sco
 
 Les variables et fonctions définies en dehors de toute fonction/classe sont dans le \emph{scope global}.
 
+\subsection{Dans le corps d'une fonction}
 Dans le corps d'une fonction, le scope de contient que les variables locales, essayer de modifier une variable globale mènera à la création d'une nouvelle variable locale à la fonction.
 Par exemple, dans le programme de la figure \vref{fresh_scope}, la variable globale \texttt{x} est toujours égale à \texttt{42} après l'appel de \texttt{f}.
 
@@ -178,7 +179,7 @@ Notez que \texttt{nonlocal} peut remonter plusieurs fonction pour trouver la var
 
 Sachant tout cela, il est possible de partager de la mémoire entre fonctions, comme illustré figure \vref{shared_memory}.
 Les deux fonctions \texttt{init} et \texttt{incr} modifient la même zone mémoire, à savoir la variable \texttt{x} locale à \texttt{g}.
-\begin{figure}[h]
+\begin{figure}[ht!]
   \centering
   \begin{minipage}{0.7\linewidth}
 \begin{lstlisting}[style=myStyle, language=python, morekeywords={nonlocal}]
@@ -199,14 +200,24 @@ def g():
   \caption{\label{shared_memory}Partage de mémoire entre sous-fonctions}
 \end{figure}
 
+\subsection{Dans le corps d'une classe}
+Contrairement aux fonctions, il n'y a pas de \texttt{LocalUndef} pour l'évaluation du corps d'une classe.
+l'allocation des variables se fait donc au cours de l'évaluation et non au préalable.
+La gestion des scopes de classe est alors similaire à la gestion du scope global.
+
 \section{\label{pyskel}Gestion des scopes dans pyskel}
 \subsection{Types}
 
 Nous découpons l'environnement initial (celui de la thèse de Raphaël Monat), en un environnement et un scope.
 
 \begin{itemize}
-  \item L'environnement associe les noms de variables à une portée (\texttt{Local}, \texttt{Nonlocal} ou \texttt{Global})
-  \item Le scope associe les identifiant à une adresse dans le tas. Il contient également le scope supérieur s'il existe.
+  \item L'environnement associe les noms de variables à une portée (\texttt{Local}, \texttt{Nonlocal} ou \texttt{Global}). Cette association est représenté par le type \texttt{map<var\_scope>} dans la sémantique
+  \item Le scope associe les identifiants à une adresse dans le tas. Il contient également le scope supérieur s'il existe.
+    Comme expliqué dans la section précédente, nous distinguons deux types de scopes:
+    \begin{itemize}
+    \item Les \texttt{partial\_scope} sont des map de \texttt{maybe<addr>}, il est donc possible d'allouer sans définir.
+    \item Les \texttt{total\_scope} sont des map d'\texttt{addr}, et se comportent comme le scope global.
+    \end{itemize}
 \end{itemize}
 
 Ainsi, pour retrouver l'adresse associée à un identifiant, nous commençons par regarder le scope de ce dernier (contenu dans l'environnement).
@@ -229,18 +240,24 @@ type map<_>
 type heap<_>
 type heap_addr<_>
 
-type scope_id = heap_addr<scope>
+type scope_id = heap_addr<any_scope>
 
 (* Read-only *)
 type env =
   | Globl
   | InFun (map<var_scope>, scope_id)
 
-type scope_heap = heap<scope>
+type scope_heap = heap<any_scope>
 
-type scope =
-  ( scope_up: maybe<scope_id>
-  , mapping: map<maybe<addr>>
+type any_scope = | TotalScope total_scope
+                 | PartialScope partial_scope
+type total_scope =
+  ( tscope_up: maybe<scope_id>
+  , tmapping: map<addr>
+  )
+type partial_scope =
+  ( pscope_up: maybe<scope_id>
+  , pmapping: map<maybe<addr>>
   )
 \end{lstlisting}
 
@@ -287,26 +304,28 @@ val readEnv (id:id) : m<addr> =
     let scope_var = map_lookup<var_scope> (id, e) in
     match scope_var with
     | Nothing ->
-    (* Not in env, but it's a read, so we lookup upper scopes *)
-      let ma =@ find_nonlocal (id, scope_id) in
-      match ma with
-      | Nothing -> find_global id
-      | Just (Just a) -> ret a
-      | Just Nothing -> fail "Out of scope"
-      end
+    (* Not in env, but it's a read, so we look at the upper scopes *)
+        let ma =@ find_nonlocal (id, scope_id) in
+        match ma with
+        | Nothing -> find_global id
+        | Just (Just a) -> ret a
+        | Just Nothing -> setFlag<addr> (Exn todoError)
+        end
     (* Look in the right scope *)
     | Just Local ->
         let (Just a) =@ find_local (id, scope_id) in
         match a with
         | Just a -> ret a
         (* LocalUndef *)
-        | Nothing -> fail "id is bound to LocalUndef"
+        | Nothing -> setFlag<addr> (Exn todoError)
         end
     | Just NonLocal ->
+        (* TODO: need to handle exceptions here *)
         let Just (Just a) =@ find_nonlocal (id, scope_id) in
         ret a
     | Just Global -> find_global id
     end
+  | InClas _ -> ...
   end
 \end{lstlisting}
   \end{minipage}
@@ -327,6 +346,7 @@ Lors de la définition d'une fonction, nous devons capturer l'identifiant du sco
       match e.local_env with
       | Globl -> Nothing<scope_id>
       | InFun(_, sid) -> Just<scope_id> sid
+      | InClass(_, sid) -> Just<scope_id> sid
       end in
     let f = Fun(name, args, bodyLocals, body, scope_up) in
     let addr =@ alloc (f, Locked) in

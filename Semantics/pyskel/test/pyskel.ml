@@ -50,23 +50,9 @@ let test_file file_name =
       | Nothing -> failwith "var `__result__` is not defined."
       | Just addr -> begin
           (* Read the objN from heap *)
-          match fst @@ fst @@ M.extract @@ heapRead (heap, addr) with
-          | Bool True -> Printf.printf "Result is True.\n"
-          | Bool False -> Printf.printf "Result is False.\n"
-          | None -> Printf.printf "Result is None.\n"
-          | NotImplemented -> Printf.printf "Result is NotImplemented.\n"
-          | Int n ->
-             Printf.printf "Result is %d\n" n;
-             Printf.printf "Expected result is %d\n" expected_result
-          | String s -> Printf.printf "Result is \"%s\"\n" s
-          | Fun(name, args, locals, _body, _scope_up) ->
-            Printf.printf "Result is function %s(%s) with locals = (%s)\n"
-              name
-              (Stdlib.List.fold_left (fun s p -> s ^ p ^ ", ") "" @@ Utils.to_standard_list args)
-              (Stdlib.List.fold_left (fun s p -> s ^ p ^ ", ") "" @@ Utils.to_standard_list locals)
-          | Class(name, _, _, _) ->
-            Printf.printf "Result is class %s" name
-          | _ -> Printf.printf "Not able to understand your program yet"
+          let objn = fst @@ fst @@ M.extract @@ heapRead (heap, addr) in
+          Printf.printf "Result is: %s\n" @@ Utils.show_objn objn;
+          Printf.printf "Expected result is: %d\n" @@ expected_result
         end
     end
 
