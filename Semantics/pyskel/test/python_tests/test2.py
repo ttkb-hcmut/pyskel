@@ -1,4 +1,4 @@
-#0
+# __result__
 
 def foo():
     def bar():

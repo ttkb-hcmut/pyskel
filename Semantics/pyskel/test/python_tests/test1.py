@@ -1,4 +1,4 @@
-#42
+# __result__
 def foo():
     global set
     global incr
