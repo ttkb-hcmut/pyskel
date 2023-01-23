@@ -46,15 +46,26 @@ let test_file file_name =
   | (Flag f, _) ->
     Printf.printf "Error, result is not Cur.\n";
     print_flag f
-  | (Cur (), {global_scope = env; heap = heap; _}) -> begin
-      match  M.extract @@ map_lookup ("__result__", env) with
-      | Nothing -> failwith "var `__result__` is not defined."
-      | Just addr -> begin
+  | (Cur (), {global_scope = env; heap = (heap, _); _}) -> begin
+      let module SMap = Map.Make(String) in
+      let module IMap = Map.Make(Int) in
+      match SMap.find_opt "__result__" env with
+      | None -> failwith "var `__result__` is not defined."
+      | Some addr -> begin
           (* Read the objN from heap *)
-          let objn = fst @@ fst @@ M.extract @@ heapRead (heap, addr) in
-          Printf.printf "Pyskel:\n%s\n" @@ Utils.show_objn objn;
+          let objn = fst @@ IMap.find addr heap in
+          Printf.printf "Pyskel:\n%s\n" @@ Utils.show_objn heap objn;
         end
     end;
+    (* begin *)
+    (*   match  M.extract @@ map_lookup ("__result__", env) with *)
+    (*   | Nothing -> failwith "var `__result__` is not defined." *)
+    (*   | Just addr -> begin *)
+    (*       (\* Read the objN from heap *\) *)
+    (*       let objn = fst @@ fst @@ M.extract @@ heapRead (heap, addr) in *)
+    (*       Printf.printf "Pyskel:\n%s\n" @@ Utils.show_objn objn; *)
+    (*     end *)
+    (* end; *)
 
   (* Eval file with python *)
   let tmp_file = Filename.temp_file "" ".out" in

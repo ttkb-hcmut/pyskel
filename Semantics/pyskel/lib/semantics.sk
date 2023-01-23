@@ -38,6 +38,7 @@ type expr =
   | Constant constant
   | Name id
   | Call (expr, list<expr>)
+  | Attribute (expr, id)
 
 (* Python object *)
 (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.65 *)
@@ -57,10 +58,15 @@ type objN =
 
 type objS =
   | Locked
-  | Methods map<addr>
+  | Fields map<addr>
 
 (* Read-only state, contains builtins *)
-type builtins = (true: addr, false: addr, none: addr, notImplemented: addr)
+type builtins =
+  ( true: addr
+  , false: addr
+  , none: addr
+  , notImplemented: addr
+  )
 type r = (local_env: env, builtins: builtins)
 
 type addr = heap_addr<(objN, objS)>
@@ -578,6 +584,27 @@ val eval_expr (e: expr) : m<addr> =
   | Constant constant -> eval_constant constant
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.71 *)
   | Name id -> readEnv id
+  | Attribute (e, attr) ->
+     let at_e =@ eval_expr e in
+     let (objn, objs) =@ read at_e in
+     match objn with
+     | Class (_, _, _, dict) ->
+       let get_builtin = map_lookup<addr> (attr, dict) in
+       match get_builtin with
+       | Nothing ->
+         match objs with
+         | Locked -> setFlag<addr> (Exn todoError)
+         | Fields map ->
+           let get_field = map_lookup<addr> (attr, map) in
+           match get_field with
+           | Nothing -> setFlag<addr> (Exn todoError)
+           | Just a -> ret a
+           end
+         end
+       | Just a -> ret a
+       end
+     | _ -> setFlag<addr> (Exn todoError)
+     end
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.121 *)
   | Call(e_c, args) ->
     let r =@ ask in

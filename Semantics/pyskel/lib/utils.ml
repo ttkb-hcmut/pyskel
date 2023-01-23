@@ -50,6 +50,8 @@ let rec translate_expr (e: Concrete.Expression.t) : expr =
     Constant (CString s)
   | Concrete.Expression.Call {func = f; args = args; _} ->
     Call(translate_expr f, to_pyskel_list @@ Stdlib.List.map translate_expr args)
+  | Concrete.Expression.Attribute { value; attr; _} ->
+    Attribute (translate_expr value, Concrete.Identifier.to_string attr)
   | _ -> failwith "Expression not specified yet"
 
 let translate_argument ({identifier = id; _} : Concrete.Argument.t)
@@ -108,10 +110,13 @@ let translate_ast (m: Concrete.Module.t) : stmt list =
 
 
 module SMap = Map.Make(String)
-let show_dict (dict: addr SMap.t) =
-  "{" ^ (Stdlib.String.concat ", " @@ Stdlib.List.map fst @@ SMap.bindings dict) ^ "}"
-
-let show_objn (x: objN) =
+module IMap = Map.Make(Int)
+let rec show_dict (heap: (objN * objS) IMap.t) (dict: addr SMap.t) =
+  "{" ^ (Stdlib.String.concat ", "
+      @@ Stdlib.List.map (fun (key, value) ->
+           Printf.sprintf "%s = %s" key (show_objn heap @@ fst @@ IMap.find value heap))
+      @@ SMap.bindings dict) ^ "}"
+and show_objn (heap: (objN * objS) IMap.t) (x: objN) =
   match x with
   | Bool True -> "True"
   | Bool False -> "False"
@@ -121,10 +126,10 @@ let show_objn (x: objN) =
      Printf.sprintf "%d" n;
   | String s -> Printf.sprintf "\"%s\"" s
   | Fun(name, args, locals, _body, _scope_up) ->
-    Printf.sprintf "function %s(%s) with locals = (%s)\n"
+    Printf.sprintf "<function %s(%s) with locals = (%s)>"
       name
       (Stdlib.List.fold_left (fun s p -> s ^ p ^ ", ") "" @@ to_standard_list args)
-      (Stdlib.List.fold_left (fun s p -> s ^ p ^ ", ") "" @@ to_standard_list locals)
+      (Stdlib.List.fold_left (fun s p -> s ^ "'" ^ p ^ "'" ^ ", ") "" @@ to_standard_list locals)
   | Class(name, _, _, dict) ->
-    Printf.sprintf "class %s %s" name (show_dict dict)
+    Printf.sprintf "class %s %s" name (show_dict heap dict)
   | _ -> Printf.sprintf "Unknown"
