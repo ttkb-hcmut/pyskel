@@ -8,6 +8,7 @@
 (* General String map *)
 type id
 val someId : id
+val __init__ : id
 
 val debug : () -> ()
 
@@ -20,6 +21,7 @@ type pythonString
 type stmt =
   | SExpr expr
   | SAssign (id, expr)
+  | SAttrAssign (expr, id, expr)
   | SDel id
   | SReturn expr
   | SFunctionDef (id, list<id>, list<stmt>)
@@ -310,7 +312,7 @@ val read (a:addr) : m<(objN, objS)> =
   put s' ;@
   return<(objN, objS)> v
 
-val write (a:addr) (v:(objN, objS)) : m<()> =
+val write ((a:addr), (v:(objN, objS))) : m<()> =
   let s =@ get in
   let (_, h') = pythonHeapWrite (s.heap, a, v) in
   let s' = s <- (heap = h') in
@@ -504,7 +506,7 @@ val declarations' (ss: list<stmt>): m<map<addr>> =
 
 
 (* Run code in a fresh total scope *)
-val tscoped (body : list<stmt>): m<scope_id> =
+val tscoped (body: list<stmt>): m<scope_id> =
   let empty_scope =@ createTotalScopeHere map_empty<addr> in
   let sid =@ allocScope (TotalScope empty_scope) in
 
@@ -525,6 +527,54 @@ val tscoped (body : list<stmt>): m<scope_id> =
   local<()> (in_scope, eval_body) ;@
   return<scope_id> sid
 
+val eval_fun_call ((at_args: list<addr>), (a: list<id>), (loc: list<id>), (body: list<stmt>), (scope_up: maybe<scope_id>)): m<addr> =
+  let r =@ ask in
+  (* Eval and set the arguments *)
+  let args_with_values = zip<id, addr> (a, at_args) in
+
+  (* Set the local variables to LocalUndef *)
+  (* Can s.scope change between here and the beginning of the function? *)
+  let locals_undef =
+    let f ((m, s):(map<maybe<addr>>, id)) = map_insert<maybe<addr>> (s, Nothing<addr>, m) in
+    foldl<id, map<maybe<addr>>> (f , map_empty<maybe<addr>> , loc) in
+  let locals_with_args =
+    let f ((m, (s, a)):(map<maybe<addr>>, (id, addr))) = map_insert<maybe<addr>> (s, Just<addr> a, m) in
+    foldl<(id, addr), map<maybe<addr>>> (f , locals_undef , args_with_values) in
+  let inner_scope = (pscope_up = scope_up, pmapping = locals_with_args) in
+  let inner_scope_id =@ allocScope (PartialScope inner_scope) in
+
+  let non_locals = nonlocals body in
+  let global_vars = globals body in
+  let all_locals = append<id> (loc, a) in
+  let fun_env =
+    let is_local ((m, s):(map<var_scope>, id)) = map_insert<var_scope> (s, Local, m) in
+    let is_nonlocal ((m, s):(map<var_scope>, id)) = map_insert<var_scope> (s, NonLocal, m) in
+    let is_global ((m, s):(map<var_scope>, id)) = map_insert<var_scope> (s, Global, m) in
+    let m = foldl<id, map<var_scope>> (is_local , map_empty<var_scope> , all_locals) in
+    let m' = foldl<id, map<var_scope>> (is_nonlocal, m, non_locals) in
+    foldl<id, map<var_scope>> (is_global, m', global_vars) in
+
+  let set_locals = \r:r ->
+    let local_env' = InFun (fun_env, inner_scope_id) in
+    r <- (local_env = local_env')
+  in
+
+  let bodyEvaluation = (
+    eval_stmts body ;@
+    return<addr> r.builtins.none
+  ) in
+
+  let localBodyEval = local<addr> (set_locals, bodyEvaluation) in
+
+  let catchReturn = \f:flag ->
+    match f with
+    | Ret a -> return<addr> a
+    | f -> setFlag<addr> f
+    end in
+
+  catchFlag<addr> (localBodyEval, catchReturn)
+
+
 val eval_stmts (ss: list<stmt>) : m<()> =
   mapM<stmt, ()> (eval_stmt, ss) ;@
   return<()> ()
@@ -539,6 +589,21 @@ val eval_stmt (s: stmt) : m<()> =
   | SAssign (x, v) ->
     let addr =@ eval_expr v in
     writeEnv (x, addr)
+  | SAttrAssign (e, attr, v) ->
+    (* write to objs *)
+    let at_e =@ eval_expr e in
+    let (objn, objs) =@ read at_e in
+    let at_v =@ eval_expr v in
+    let objs' =
+      match objs with
+      | Locked ->
+         let fields = map_insert<addr> (attr, at_v, map_empty<addr>) in
+         Fields fields
+      | Fields fields ->
+         let new_fields = map_insert<addr> (attr, at_v, fields) in
+         Fields new_fields
+      end in
+    write (at_e, (objn, objs'))
   | SDel id -> deleteEnv id
   (* Return, raise the ret flag *)
   | SReturn e ->
@@ -578,7 +643,27 @@ val eval_stmt (s: stmt) : m<()> =
   | SGlobal _ -> return<()> ()
   end
 
-val eval_expr (e: expr) : m<addr> =
+val eval_class_call ((at_args: list<addr>), (class: addr), (dict: map<addr>)): m<addr> =
+  let inst = Inst class in
+  let init_method = map_lookup<addr> (__init__, dict) in
+  let i =@ alloc (inst, Fields map_empty<addr>) in
+
+  match init_method with
+  | Nothing -> return<()> ()
+  | Just m ->
+    let (objn, _) =@ read m in
+    match objn with
+    | Fun(_, a, loc, body, scope_up) ->
+       let new_args = Cons<addr> (i, at_args) in
+       eval_fun_call (new_args, a, loc, body, scope_up);@
+       return<()> ()
+    | _ -> setFlag<()> (Exn todoError)
+    end
+  end ;@
+  ret i
+
+
+val eval_expr (e: expr): m<addr> =
   match e with
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.70 *)
   | Constant constant -> eval_constant constant
@@ -603,60 +688,32 @@ val eval_expr (e: expr) : m<addr> =
          end
        | Just a -> ret a
        end
+     | Inst c ->
+       match objs with
+       | Locked ->setFlag<addr> (Exn todoError)
+       | Fields map ->
+         let get_field = map_lookup<addr> (attr, map) in
+         match get_field with
+         | Nothing -> setFlag<addr> (Exn todoError)
+         | Just a -> ret a
+         end
+       end
      | _ -> setFlag<addr> (Exn todoError)
      end
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.121 *)
   | Call(e_c, args) ->
-    let r =@ ask in
     (* Eval the function *)
     let at_c =@ eval_expr e_c in
-    let (Fun(_, a, loc, body, scope_up), _) =@ read at_c in
-
-    (* Eval and set the arguments *)
-    let at_args =@ mapM<expr, addr> (eval_expr, args) in
-    let args_with_values = zip<id, addr> (a, at_args) in
-
-    (* Set the local variables to LocalUndef *)
-    (* Can s.scope change between here and the beginning of the function? *)
-    let locals_undef =
-      let f ((m, s):(map<maybe<addr>>, id)) = map_insert<maybe<addr>> (s, Nothing<addr>, m) in
-      foldl<id, map<maybe<addr>>> (f , map_empty<maybe<addr>> , loc) in
-    let locals_with_args =
-      let f ((m, (s, a)):(map<maybe<addr>>, (id, addr))) = map_insert<maybe<addr>> (s, Just<addr> a, m) in
-      foldl<(id, addr), map<maybe<addr>>> (f , locals_undef , args_with_values) in
-    let inner_scope = (pscope_up = scope_up, pmapping = locals_with_args) in
-    let inner_scope_id =@ allocScope (PartialScope inner_scope) in
-
-    let non_locals = nonlocals body in
-    let global_vars = globals body in
-    let all_locals = append<id> (loc, a) in
-    let fun_env =
-      let is_local ((m, s):(map<var_scope>, id)) = map_insert<var_scope> (s, Local, m) in
-      let is_nonlocal ((m, s):(map<var_scope>, id)) = map_insert<var_scope> (s, NonLocal, m) in
-      let is_global ((m, s):(map<var_scope>, id)) = map_insert<var_scope> (s, Global, m) in
-      let m = foldl<id, map<var_scope>> (is_local , map_empty<var_scope> , all_locals) in
-      let m' = foldl<id, map<var_scope>> (is_nonlocal, m, non_locals) in
-      foldl<id, map<var_scope>> (is_global, m', global_vars) in
-
-    let set_locals = \r:r ->
-      let local_env' = InFun (fun_env, inner_scope_id) in
-      r <- (local_env = local_env')
-    in
-
-    let bodyEvaluation = (
-      eval_stmts body ;@
-      return<addr> r.builtins.none
-    ) in
-
-    let localBodyEval = local<addr> (set_locals, bodyEvaluation) in
-
-    let catchReturn = \f:flag ->
-      match f with
-      | Ret a -> return<addr> a
-      | f -> setFlag<addr> f
-      end in
-
-    catchFlag<addr> (localBodyEval, catchReturn)
+    let (objn, _) =@ read at_c in
+    match objn with
+    | Fun(_, a, loc, body, scope_up) ->
+       let at_args =@ mapM<expr, addr> (eval_expr, args) in
+       eval_fun_call (at_args, a, loc, body, scope_up)
+    | Class(_, _, _, dict) ->
+       let at_args =@ mapM<expr, addr> (eval_expr, args) in
+       eval_class_call (at_args, at_c, dict)
+    | _ -> setFlag<addr> (Exn todoError)
+    end
   end
 
 val eval_constant (c:constant) : m<addr> =

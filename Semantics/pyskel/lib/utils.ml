@@ -74,6 +74,10 @@ let rec translate_stmt (s : Concrete.Statement.t) : stmt =
       targets = Concrete.Expression.Name {id = x; _} :: _ ;
       value = e; _} ->
     SAssign(Concrete.Identifier.to_string x, translate_expr e)
+  | Concrete.Statement.Assign {
+      targets = Concrete.Expression.Attribute { value; attr; _} :: _;
+      value = e; _} ->
+    SAttrAssign(translate_expr value, Concrete.Identifier.to_string attr, translate_expr e)
   | Concrete.Statement.Delete {
       targets = Concrete.Expression.Name {id = x; _} :: _
     ; _} ->
@@ -132,4 +136,8 @@ and show_objn (heap: (objN * objS) IMap.t) (x: objN) =
       (Stdlib.List.fold_left (fun s p -> s ^ "'" ^ p ^ "'" ^ ", ") "" @@ to_standard_list locals)
   | Class(name, _, _, dict) ->
     Printf.sprintf "class %s %s" name (show_dict heap dict)
+  | Inst addr ->
+    let f = function Class (name, _, _, _) -> name | _ -> "NonClass" in
+
+    Printf.sprintf "instance of %s" @@ f (fst @@ IMap.find addr heap)
   | _ -> Printf.sprintf "Unknown"

@@ -9,6 +9,7 @@ end
 module Spec (M:MONAD) = struct
   let map_empty = SMap.empty
   let someId = "someId"
+  let __init__ = "__init__"
 
   let internal_map_elem (s, m) =
     M.ret @@ SMap.mem s m
