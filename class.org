@@ -34,3 +34,24 @@ print(test2.share)
 : 5
 : 4
 : 4
+
+#+begin_src python :results output
+class Foo():
+
+    def bar():
+        return 5
+
+    def baz(x):
+        x.y = 5
+
+    def pr(self):
+        print(self.y)
+
+test = Foo()
+# print(test.bar())
+test.baz()
+test.pr()
+#+end_src
+
+#+RESULTS:
+: 5
