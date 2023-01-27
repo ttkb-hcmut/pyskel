@@ -38,8 +38,9 @@ print(test2.share)
 #+begin_src python :results output
 class Foo():
 
+    @staticmethod
     def bar():
-        return 5
+        return 7
 
     def baz(x):
         x.y = 5
@@ -48,10 +49,12 @@ class Foo():
         print(self.y)
 
 test = Foo()
-# print(test.bar())
+#print(Foo.bar())
+print(test.bar())
 test.baz()
 test.pr()
 #+end_src
 
 #+RESULTS:
+: 7
 : 5
