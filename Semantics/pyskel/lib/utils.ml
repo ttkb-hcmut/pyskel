@@ -140,4 +140,9 @@ and show_objn (heap: (objN * objS) IMap.t) (x: objN) =
     let f = function Class (name, _, _, _) -> name | _ -> "NonClass" in
 
     Printf.sprintf "instance of %s" @@ f (fst @@ IMap.find addr heap)
+  | Method (self, fun_) ->
+    let (self_obj, _) = IMap.find self heap in
+    let (fun_obj, _) = IMap.find fun_ heap in
+    Printf.sprintf "<method %s of object <%s>>" (show_objn heap fun_obj) (show_objn heap self_obj);
+
   | _ -> Printf.sprintf "Unknown"

@@ -1,9 +1,10 @@
 # __result__
 
 class Foo:
-    def __init__(self):
-        self.x = 42
+    def __init__(self, y):
+        self.x = y
+        x = y
 
 
-foo = Foo()
+foo = Foo(30)
 __result__ = foo.x

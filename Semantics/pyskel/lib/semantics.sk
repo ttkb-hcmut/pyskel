@@ -41,6 +41,7 @@ type expr =
   | Name id
   | Call (expr, list<expr>)
   | Attribute (expr, id)
+  | Addr addr
 
 (* Python object *)
 (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.65 *)
@@ -55,7 +56,7 @@ type objN =
   (* Fun (name, args, locals, body) *)
   | Fun (id, list<id>, list<id>, list<stmt>, maybe<scope_id>)
   | Method (addr, addr)
-  | Class (id, list<id>, id, map<addr>)
+  | Class (id, list<addr>, id, map<addr>)
   | Inst addr
 
 type objS =
@@ -251,6 +252,18 @@ val mapM<a, b> ((f: a -> m<b>), (l: list<a>)) : m<list<b>> =
     let mh =@ f h in
     let mt =@ mapM<a, b> (f, t) in
     return<list<b>> (Cons<b>(mh, mt))
+  end
+
+val filterM<a> ((f: a -> m<bool>), (l: list<a>)) : m<list<a>> =
+  match l with
+  | Nil -> return<list<a>> Nil<a>
+  | Cons(h, t) ->
+    let b =@ f h in
+    let t' =@ filterM<a> (f, t) in
+    match b with
+    | True -> let r = Cons<a>(h, t') in return<list<a>> r
+    | False -> return<list<a>> t'
+    end
   end
 
 val zipWithM<a, b, c> ((f: (a, b) -> m<c>), (la: list<a>), (lb: list<b>)) : m<list<c>> =
@@ -631,12 +644,12 @@ val eval_stmt (s: stmt) : m<()> =
     (* Declarations: récupérer les adresses associées aux *)
     (* définitions dans le tas après évaluation de body *)
     let dict =@ declarations' body in
-    (* let dict = map_fromJust<addr> dict' in*)
 
-    (* let call = Call (meta, Cons(name, Nil)) in *)
-    (* let stmt = (SAssign (name, call)) in *)
-    (* eval_stmt stmt *)
-    let c = Class(name, Nil<id>, someId, dict) in
+    (* superclasses are in [args] *)
+    let at_args =@ mapM<expr, addr> (eval_expr, args) in
+
+
+    let c = Class(name, at_args, someId, dict) in
     let addr =@ alloc (c, Locked) in
     writeEnv (name, addr)
   | SNonlocal _ -> return<()> ()
@@ -646,7 +659,7 @@ val eval_stmt (s: stmt) : m<()> =
 val eval_class_call ((at_args: list<addr>), (class: addr), (dict: map<addr>)): m<addr> =
   let inst = Inst class in
   let init_method = map_lookup<addr> (__init__, dict) in
-  let i =@ alloc (inst, Fields map_empty<addr>) in
+  let self =@ alloc (inst, Fields map_empty<addr>) in
 
   match init_method with
   | Nothing -> return<()> ()
@@ -654,14 +667,105 @@ val eval_class_call ((at_args: list<addr>), (class: addr), (dict: map<addr>)): m
     let (objn, _) =@ read m in
     match objn with
     | Fun(_, a, loc, body, scope_up) ->
-       let new_args = Cons<addr> (i, at_args) in
+       let new_args = Cons<addr> (self, at_args) in
        eval_fun_call (new_args, a, loc, body, scope_up);@
        return<()> ()
     | _ -> setFlag<()> (Exn todoError)
     end
   end ;@
-  ret i
+  ret self
 
+val has_attribute ((at_e: addr), (attr: id)) : m<bool> =
+  let (objn, objs) =@ read at_e in
+  match objn with
+  | Class (_, supers, _, dict) ->
+    let get_builtin = map_lookup<addr> (attr, dict) in
+    match get_builtin with
+    | Nothing ->
+      match objs with
+      | Locked -> return<bool> False
+      | Fields map ->
+        let get_field = map_lookup<addr> (attr, map) in
+        match get_field with
+        | Nothing -> return<bool> False
+        | Just a -> return<bool> True
+        end
+      end
+    | Just a -> return<bool> True
+    end
+  | Inst c ->
+    match objs with
+    | Locked -> return<bool> False
+    | Fields map ->
+      let get_field = map_lookup<addr> (attr, map) in
+      match get_field with
+      | Nothing -> has_attribute (c, attr)
+      | Just a -> return<bool> True
+      end
+    end
+  | _ -> return<bool> False
+end
+
+val get_attribute ((at_e: addr), (attr: id)) : m<addr> =
+  let (objn, objs) =@ read at_e in
+  match objn with
+  | Class (_, supers, _, dict) ->
+    (* We inlined get_builtin_field here *)
+    let get_builtin = map_lookup<addr> (attr, dict) in
+    match get_builtin with
+    | Just a -> ret a
+    | Nothing ->
+      (* look in super classes *)
+      let has_attribute_attr = \super:addr -> has_attribute (super, attr) in
+      let supers_with_attribute =@ filterM<addr> (has_attribute_attr, supers) in
+      match supers_with_attribute with
+      | Cons(h, _) -> get_attribute (h, attr)
+      | Nil ->
+        (* not in super classes, look in objs *)
+        match objs with
+        | Locked -> setFlag<addr> (Exn todoError)
+        | Fields map ->
+          let get_field = map_lookup<addr> (attr, map) in
+          match get_field with
+          | Nothing -> setFlag<addr> (Exn todoError)
+          | Just a -> ret a
+          end
+        end
+      end
+    end
+  | Inst c ->
+    match objs with
+    | Locked ->setFlag<addr> (Exn todoError)
+    | Fields map ->
+      let get_field = map_lookup<addr> (attr, map) in
+      match get_field with
+      | Nothing -> (
+          (* Look for methods *)
+          (* We inlined function.__get__ *)
+          let fun =@ get_attribute (c, attr) in
+          let meth = Method (at_e, fun) in
+          let at_meth =@ alloc (meth, Locked) in
+          ret at_meth
+        )
+      | Just a -> ret a
+      end
+    end
+  | _ -> setFlag<addr> (Exn todoError)
+end
+
+val eval_call ((at_c: addr), (args: list<expr>)): m<addr> =
+  let (objn, _) =@ read at_c in
+  match objn with
+  | Fun(_, a, loc, body, scope_up) ->
+     let at_args =@ mapM<expr, addr> (eval_expr, args) in
+     eval_fun_call (at_args, a, loc, body, scope_up)
+  | Class(_, _, _, dict) ->
+     let at_args =@ mapM<expr, addr> (eval_expr, args) in
+     eval_class_call (at_args, at_c, dict)
+  | Method(self, fun) ->
+    eval_call (fun, Cons<expr> (Addr self, args))
+  | _ -> setFlag<addr> (Exn todoError)
+  end
 
 val eval_expr (e: expr): m<addr> =
   match e with
@@ -669,51 +773,15 @@ val eval_expr (e: expr): m<addr> =
   | Constant constant -> eval_constant constant
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.71 *)
   | Name id -> readEnv id
+  | Addr a -> ret a
   | Attribute (e, attr) ->
      let at_e =@ eval_expr e in
-     let (objn, objs) =@ read at_e in
-     match objn with
-     | Class (_, _, _, dict) ->
-       let get_builtin = map_lookup<addr> (attr, dict) in
-       match get_builtin with
-       | Nothing ->
-         match objs with
-         | Locked -> setFlag<addr> (Exn todoError)
-         | Fields map ->
-           let get_field = map_lookup<addr> (attr, map) in
-           match get_field with
-           | Nothing -> setFlag<addr> (Exn todoError)
-           | Just a -> ret a
-           end
-         end
-       | Just a -> ret a
-       end
-     | Inst c ->
-       match objs with
-       | Locked ->setFlag<addr> (Exn todoError)
-       | Fields map ->
-         let get_field = map_lookup<addr> (attr, map) in
-         match get_field with
-         | Nothing -> setFlag<addr> (Exn todoError)
-         | Just a -> ret a
-         end
-       end
-     | _ -> setFlag<addr> (Exn todoError)
-     end
+     get_attribute (at_e, attr)
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.121 *)
   | Call(e_c, args) ->
     (* Eval the function *)
     let at_c =@ eval_expr e_c in
-    let (objn, _) =@ read at_c in
-    match objn with
-    | Fun(_, a, loc, body, scope_up) ->
-       let at_args =@ mapM<expr, addr> (eval_expr, args) in
-       eval_fun_call (at_args, a, loc, body, scope_up)
-    | Class(_, _, _, dict) ->
-       let at_args =@ mapM<expr, addr> (eval_expr, args) in
-       eval_class_call (at_args, at_c, dict)
-    | _ -> setFlag<addr> (Exn todoError)
-    end
+    eval_call (at_c, args)
   end
 
 val eval_constant (c:constant) : m<addr> =

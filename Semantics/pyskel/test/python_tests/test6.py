@@ -5,3 +5,4 @@ class Foo:
         return x
 
 __result__ = Foo.bar(Foo)
+
