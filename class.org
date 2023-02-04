@@ -34,3 +34,27 @@ print(test2.share)
 : 5
 : 4
 : 4
+
+#+begin_src python :results output
+class Foo():
+
+    @staticmethod
+    def bar():
+        return 7
+
+    def baz(x):
+        x.y = 5
+
+    def pr(self):
+        print(self.y)
+
+test = Foo()
+#print(Foo.bar())
+print(test.bar())
+test.baz()
+test.pr()
+#+end_src
+
+#+RESULTS:
+: 7
+: 5
