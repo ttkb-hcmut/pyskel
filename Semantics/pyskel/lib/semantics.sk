@@ -742,10 +742,15 @@ val get_attribute ((at_e: addr), (attr: id)) : m<addr> =
       | Nothing -> (
           (* Look for methods *)
           (* We inlined function.__get__ *)
-          let fun =@ get_attribute (c, attr) in
-          let meth = Method (at_e, fun) in
-          let at_meth =@ alloc (meth, Locked) in
-          ret at_meth
+          let attr =@ get_attribute (c, attr) in
+		  let (objn, _) =@ read attr in
+		  match objn with
+		  | Fun _ ->
+            let meth = Method (at_e, attr) in
+            let at_meth =@ alloc (meth, Locked) in
+            ret at_meth
+		  | _ -> ret attr
+		  end
         )
       | Just a -> ret a
       end
