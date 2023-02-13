@@ -105,6 +105,8 @@ let rec translate_stmt (s : Concrete.Statement.t) : stmt =
               to_pyskel_list @@ Stdlib.List.map translate_expr bases,
               to_pyskel_list @@ Stdlib.List.map translate_keyword keywords,
               to_pyskel_list @@ Stdlib.List.map translate_stmt body)
+  | Concrete.Statement.Raise {exc = Some expr; _} ->
+    SRaise (translate_expr expr)
   | _ -> failwith "statement not specified yet"
 
 
@@ -115,6 +117,7 @@ let translate_ast (m: Concrete.Module.t) : stmt list =
 
 module SMap = Map.Make(String)
 module IMap = Map.Make(Int)
+
 let rec show_dict (heap: (objN * objS) IMap.t) (dict: addr SMap.t) =
   "{" ^ (Stdlib.String.concat ", "
       @@ Stdlib.List.map (fun (key, value) ->
@@ -146,3 +149,13 @@ and show_objn (heap: (objN * objS) IMap.t) (x: objN) =
     Printf.sprintf "<method %s of object <%s>>" (show_objn heap fun_obj) (show_objn heap self_obj);
 
   | _ -> Printf.sprintf "Unknown"
+
+
+let show_flag heap flag =
+  match flag with
+  | Ret _ -> Printf.sprintf "Flag is %s\n" "Ret"
+  | Brk -> Printf.sprintf "Flag is %s\n" "Brk"
+  | Cont -> Printf.sprintf "Flag is %s\n" "Cont"
+  | Exn exn ->
+    let (objn, _) = IMap.find exn heap in
+    Printf.sprintf "Flag is Exn:\n\t%s" (show_objn heap objn);

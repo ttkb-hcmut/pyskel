@@ -24,6 +24,7 @@ type stmt =
   | SAttrAssign (expr, id, expr)
   | SDel id
   | SReturn expr
+  | SRaise expr
   | SFunctionDef (id, list<id>, list<stmt>)
   (*         name,       args,           kwargs,       body *)
   | SClassDef (id, list<expr>, list<(id, expr)>, list<stmt>)
@@ -622,6 +623,9 @@ val eval_stmt (s: stmt) : m<()> =
   | SReturn e ->
     let addr =@ eval_expr e in
     setFlag<()> (Ret addr)
+  | SRaise e ->
+    let err =@ eval_expr e in
+    setFlag<()> (Exn err)
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.115 *)
   | SFunctionDef (name, args, body) ->
     let bodyLocals =

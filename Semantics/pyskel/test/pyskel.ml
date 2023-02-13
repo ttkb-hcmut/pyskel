@@ -2,13 +2,6 @@ open PyreAst
 open Pyskel.Utils.InterInst.Interpreter
 module Utils = Pyskel.Utils
 
-let print_flag flag =
-  match flag with
-  | Ret _ -> Printf.printf "Flag is %s\n" "Ret"
-  | Brk -> Printf.printf "Flag is %s\n" "Brk"
-  | Cont -> Printf.printf "Flag is %s\n" "Cont"
-  | Exn _ -> Printf.printf "Flag is %s\n" "Exn"
-
 let test_file file_name =
   Printf.printf "\n\n##################\n";
   Printf.printf "## %s\n" file_name;
@@ -45,7 +38,7 @@ let test_file file_name =
     ; heap = heap})) with
   | (Flag f, _) ->
     Printf.printf "Error, result is not Cur.\n";
-    print_flag f
+    Printf.printf "%s" @@ Utils.show_flag (fst heap) f
   | (Cur (), {global_scope = env; heap = (heap, _); _}) -> begin
       let module SMap = Map.Make(String) in
       let module IMap = Map.Make(Int) in
