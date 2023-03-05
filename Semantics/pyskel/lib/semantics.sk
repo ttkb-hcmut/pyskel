@@ -23,6 +23,7 @@ type stmt =
   | SAssign (id, expr)
   | SAttrAssign (expr, id, expr)
   | SDel id
+  | SPass
   | SReturn expr
   | SRaise expr
   | SFunctionDef (id, list<id>, list<stmt>)
@@ -93,6 +94,10 @@ val initializedHeap (() : ()) : (r, pythonHeap) =
 
 
 val todoError : addr
+val _BaseException : id
+val _Exception : id
+val _NameError : id
+val _UnboundLocalError : id
 
 (** Global state of the interpreter **)
 type var_scope =
@@ -115,8 +120,13 @@ val scope_up (a_scope: any_scope) : maybe<scope_id> =
 
 val find_global (id: id) : m<addr> =
   let s =@ get in
-  let a = map_find<addr> (id, s.global_scope) in
-  ret a
+  let a = map_lookup<addr> (id, s.global_scope) in
+  match a with
+  | Just x -> ret x
+  | Nothing ->
+    let nameError =@ readEnv _NameError in
+    setFlag<addr> (Exn nameError)
+  end
 
 val find_local ((id: id), (sid: scope_id)) : m<maybe<maybe<addr>>> =
   let a_scope =@ readScope sid in
@@ -620,6 +630,7 @@ val eval_stmt (s: stmt) : m<()> =
     write (at_e, (objn, objs'))
   | SDel id -> deleteEnv id
   (* Return, raise the ret flag *)
+  | SPass -> return<()> ()
   | SReturn e ->
     let addr =@ eval_expr e in
     setFlag<()> (Ret addr)

@@ -7,6 +7,7 @@ module Inst(M:MONAD) = struct
     include Bool_inst.TYPE
     include Heap_inst.TYPE
     include Map_inst.TYPE
+    include Exn_inst.TYPE
   end = Types
 
   module Spec = struct
@@ -15,6 +16,7 @@ module Inst(M:MONAD) = struct
     include Bool_inst.Spec(M)
     include Map_inst.Spec(M)
     include Heap_inst.Spec(M)
+    include Exn_inst.Spec(M)
   end
 
   module Interpreter = Semantics.MakeInterpreter(Spec)
@@ -82,6 +84,7 @@ let rec translate_stmt (s : Concrete.Statement.t) : stmt =
       targets = Concrete.Expression.Name {id = x; _} :: _
     ; _} ->
     SDel(Concrete.Identifier.to_string x)
+  | Concrete.Statement.Pass _ -> SPass
   | Concrete.Statement.Return {value = Some e; _} ->
     SReturn (translate_expr e)
   | Concrete.Statement.FunctionDef {
@@ -158,4 +161,30 @@ let show_flag heap flag =
   | Cont -> Printf.sprintf "Flag is %s\n" "Cont"
   | Exn exn ->
     let (objn, _) = IMap.find exn heap in
-    Printf.sprintf "Flag is Exn:\n\t%s" (show_objn heap objn);
+    Printf.sprintf "Flag is Exn:\n\t%s" (show_objn heap objn)
+
+
+let eval_file prelude contents =
+  (* Read Prelude *)
+  let prelude_contents = really_input_string prelude (in_channel_length prelude) in
+
+  (* Parse program *)
+  let a = Parser.with_context (fun context ->
+      Parser.Concrete.parse_module ~context (prelude_contents ^ contents)
+  ) in
+
+  (* Check for parse error *)
+  Result.iter_error
+    (fun Parser.Error.{message; line; column; _} ->
+       Printf.fprintf stderr "Syntax error at (line %d, column %d):\n\t%s\n" line column message;
+       exit 1;
+    ) a;
+
+  (* Eval file with pyskel *)
+  let ast = translate_ast (Result.get_ok a) in
+  let fs = M.extract (eval_stmts ast) in
+  let (builtins, heap) = M.extract @@ initializedHeap () in
+  M.extract (fs (builtins,
+    { global_scope = initialEnv
+    ; scope_heap = initialHeap
+    ; heap = heap}))
