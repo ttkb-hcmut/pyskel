@@ -1,3 +1,6 @@
 # __result__
 
-__result__ = x
+try:
+    x = undefined
+except NameError:
+    __result__ = 0

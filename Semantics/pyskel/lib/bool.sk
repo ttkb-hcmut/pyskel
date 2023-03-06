@@ -24,6 +24,12 @@ val and ((b1: bool), (b2: bool)) : bool =
   | _ -> False
   end
 
+val or' ((b1: bool), (b2: bool)) : bool =
+  match (b1, b2) with
+  | (False, False) -> False
+  | _ -> True
+  end
+
 val negate<a> (f: a -> bool) : a -> bool =
   \a:a -> let res = f a in not res
 

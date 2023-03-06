@@ -10,3 +10,5 @@ class Exception(BaseException): pass
 class NameError(Exception): pass
 
 class UnboundLocalError(NameError): pass
+
+class TypeError(Exception): pass

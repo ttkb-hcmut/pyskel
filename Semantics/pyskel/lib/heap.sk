@@ -1,8 +1,16 @@
 #ifndef HEAP_SK
 #define HEAP_SK
 
+#include "bool.sk"
+
 type heap<_>
 type heap_addr<_>
+
+val internal_addr_equal<a> : (heap_addr<a>, heap_addr<a>) -> internal_bool
+
+val addr_equal<a> ((left: heap_addr<a>), (right: heap_addr<a>)) : bool =
+  let ib = internal_addr_equal<a> (left, right) in
+  from_internal ib
 
 val heapAlloc<a> : (heap<a>, a) -> (heap_addr<a>, heap<a>)
 val heapRead<a> : (heap<a>, heap_addr<a>) -> (a, heap<a>)

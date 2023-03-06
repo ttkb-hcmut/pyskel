@@ -26,11 +26,14 @@ type stmt =
   | SPass
   | SReturn expr
   | SRaise expr
+  | STry (list<stmt>, exn_handler)
   | SFunctionDef (id, list<id>, list<stmt>)
   (*         name,       args,           kwargs,       body *)
   | SClassDef (id, list<expr>, list<(id, expr)>, list<stmt>)
   | SNonlocal id
   | SGlobal id
+
+type exn_handler = (expr, list<stmt>)
 
 type constant =
   | CNone
@@ -98,6 +101,7 @@ val _BaseException : id
 val _Exception : id
 val _NameError : id
 val _UnboundLocalError : id
+val _TypeError : id
 
 (** Global state of the interpreter **)
 type var_scope =
@@ -123,9 +127,7 @@ val find_global (id: id) : m<addr> =
   let a = map_lookup<addr> (id, s.global_scope) in
   match a with
   | Just x -> ret x
-  | Nothing ->
-    let nameError =@ readEnv _NameError in
-    setFlag<addr> (Exn nameError)
+  | Nothing -> raise_exn<addr> _NameError
   end
 
 val find_local ((id: id), (sid: scope_id)) : m<maybe<maybe<addr>>> =
@@ -598,6 +600,19 @@ val eval_fun_call ((at_args: list<addr>), (a: list<id>), (loc: list<id>), (body:
 
   catchFlag<addr> (localBodyEval, catchReturn)
 
+val raise<a> (at_exn : addr) : m<a> =
+  let baseException =@ readEnv _BaseException in
+  let is_exn =@ is_subclass_of (at_exn, baseException) in
+  match is_exn with
+  | True ->
+    let at =@ eval_class_call (Nil<addr>, at_exn, map_empty<addr>) in
+    setFlag<a> (Exn at)
+  | False -> setFlag<a> (Exn at_exn)
+  end
+
+val raise_exn<a> (exn : id) : m<a> =
+  let at_exn =@ readEnv exn in
+  raise<a> at_exn
 
 val eval_stmts (ss: list<stmt>) : m<()> =
   mapM<stmt, ()> (eval_stmt, ss) ;@
@@ -634,9 +649,31 @@ val eval_stmt (s: stmt) : m<()> =
   | SReturn e ->
     let addr =@ eval_expr e in
     setFlag<()> (Ret addr)
+
   | SRaise e ->
-    let err =@ eval_expr e in
-    setFlag<()> (Exn err)
+    let at_exn =@ eval_expr e in
+    raise<()> at_exn
+  | STry (tbody, (exn, texc)) ->
+    let handler = \flag:flag ->
+      match flag with
+      | Exn raised ->
+        let baseException =@ readEnv _BaseException in
+        let at_exn =@ eval_expr exn in
+        let valid_exception =@ is_subclass_of (at_exn, baseException) in
+        match valid_exception with
+        | True ->
+          let exn_match_handler =@ is_instance_of (raised, at_exn) in
+          match exn_match_handler with
+          | True -> eval_stmts texc
+          | False -> return<()> ()
+          end
+        | False -> raise_exn<()> _TypeError
+        end
+      | _ -> return<()> ()
+      end in
+    let w = eval_stmts tbody in
+    catchFlag<()> (w, handler)
+
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.115 *)
   | SFunctionDef (name, args, body) ->
     let bodyLocals =
@@ -689,6 +726,33 @@ val eval_class_call ((at_args: list<addr>), (class: addr), (dict: map<addr>)): m
     end
   end ;@
   ret self
+
+val addr_eq ((left: addr), (right: addr)) : bool =
+  addr_equal<(objN, objS)> (left, right)
+
+val is_subclass_of ((at_child: addr), (at_super: addr)) : m<bool> =
+  let is_eq = addr_eq (at_child, at_super) in
+  match is_eq with
+  | True -> return<bool> True
+  | False ->
+    let (child, _) =@ read at_child in
+    match child with
+    | Class (_, c_supers, _, _) ->
+      let is_subclass_of_super = \c:addr -> is_subclass_of (c, at_super) in
+      let bs =@ mapM<addr, bool> (is_subclass_of_super, c_supers) in
+      let res = foldl<bool, bool> (or', False, bs) in
+      return<bool> res
+    | _ -> setFlag<bool> (Exn todoError)
+    end
+  end
+
+val is_instance_of ((at_object: addr), (at_class: addr)) : m<bool> =
+  let (object, _) =@ read at_object in
+  match object with
+  | Inst c -> is_subclass_of (c, at_class)
+  | _ -> return<bool> False
+  end
+
 
 val has_attribute ((at_e: addr), (attr: id)) : m<bool> =
   let (objn, objs) =@ read at_e in

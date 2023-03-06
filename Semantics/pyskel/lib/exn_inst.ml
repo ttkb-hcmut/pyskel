@@ -8,4 +8,5 @@ module Spec (M:MONAD) = struct
   let _Exception = "Exception"
   let _NameError = "NameError"
   let _UnboundLocalError = "NameError"
+  let _TypeError = "TypeError"
 end

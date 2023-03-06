@@ -30,10 +30,10 @@ open InterInst.Interpreter
 let to_pyskel_list (l : 'a Stdlib.List.t) : 'a list =
   Stdlib.List.fold_right (fun h t -> Cons(h, t)) l Nil
 
-let rec to_standard_list (l : 'a list) : 'a Stdlib.List.t =
+let rec to_stdlib_list (l : 'a list) : 'a Stdlib.List.t =
   match l with
   | Nil -> []
-  | Cons(h, t) -> h :: (to_standard_list t)
+  | Cons(h, t) -> h :: (to_stdlib_list t)
 
 
 let rec translate_expr (e: Concrete.Expression.t) : expr =
@@ -110,8 +110,18 @@ let rec translate_stmt (s : Concrete.Statement.t) : stmt =
               to_pyskel_list @@ Stdlib.List.map translate_stmt body)
   | Concrete.Statement.Raise {exc = Some expr; _} ->
     SRaise (translate_expr expr)
+  | Concrete.Statement.Try {body; handlers; _} ->
+    STry (to_pyskel_list @@ Stdlib.List.map translate_stmt body
+         , translate_handler (Stdlib.List.hd handlers)
+         )
   | _ -> failwith "statement not specified yet"
 
+and translate_handler (h: Concrete.ExceptionHandler.t) : exn_handler =
+  match h with
+  | {type_ = Some e; body;_ } ->
+    (* (translate_expr e, to_pyskel_list @@ Stdlib.List.map translate_stmt body) *)
+    (translate_expr e, to_pyskel_list @@ Stdlib.List.map translate_stmt body)
+  | _ -> failwith "exception handler not specified yet"
 
 let translate_ast (m: Concrete.Module.t) : stmt list =
   match m with
@@ -138,10 +148,12 @@ and show_objn (heap: (objN * objS) IMap.t) (x: objN) =
   | Fun(name, args, locals, _body, _scope_up) ->
     Printf.sprintf "<function %s(%s) with locals = (%s)>"
       name
-      (Stdlib.List.fold_left (fun s p -> s ^ p ^ ", ") "" @@ to_standard_list args)
-      (Stdlib.List.fold_left (fun s p -> s ^ "'" ^ p ^ "'" ^ ", ") "" @@ to_standard_list locals)
-  | Class(name, _, _, dict) ->
-    Printf.sprintf "class %s %s" name (show_dict heap dict)
+      (Stdlib.List.fold_left (fun s p -> s ^ p ^ ", ") "" @@ to_stdlib_list args)
+      (Stdlib.List.fold_left (fun s p -> s ^ "'" ^ p ^ "'" ^ ", ") "" @@ to_stdlib_list locals)
+  | Class(name, supers, _, dict) ->
+    let supers_str =
+      String.concat ", " @@ Stdlib.List.map (show_objn heap) @@ Stdlib.List.map (fun a -> fst @@ IMap.find a heap) @@ to_stdlib_list supers in
+    Printf.sprintf "class %s (%s) %s" name supers_str (show_dict heap dict)
   | Inst addr ->
     let f = function Class (name, _, _, _) -> name | _ -> "NonClass" in
 

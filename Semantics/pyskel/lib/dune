@@ -1,6 +1,6 @@
 (library
  (name pyskel)
- (libraries necroml pyre-ast js_of_ocaml))
+ (libraries necroml pyre-ast ))
 
 (rule
  (target semantics_full.sk)

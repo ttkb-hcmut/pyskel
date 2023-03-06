@@ -19,6 +19,9 @@ module Spec (M:MONAD) = struct
   let heapWrite ((h, i), a, v) =
     M.ret ((), (IMap.add a v h, i))
 
+  let internal_addr_equal (x, y) =
+    M.ret (x = y)
+
   (* Arbitrary *)
   let todoError = 42
 end
