@@ -1,0 +1,456 @@
+
+% packages
+\usepackage{mathtools}
+\usepackage{xparse}
+\usepackage{mathpartir}
+\usepackage{etoolbox}
+\usepackage{marvosym}
+\usepackage{stmaryrd}
+\usepackage{dsfont}
+\usepackage{minted}
+\usepackage{hyperref}
+\usepackage{mathtools}
+\usepackage{varwidth}
+\usepackage{bussproofs}
+\usepackage{framed}
+\usepackage{caption}
+\usepackage{amssymb}
+
+
+% utils
+\newcommand\ifempty[3]{\expandafter\ifstrempty{#1}{#2}{#3}}
+\newcommand\ifnempty[2]{\ifempty{#1}{}{#2}}
+
+\newcommand\ifthenabove[1]{%
+    \ifnempty{#1}{^{#1}}%
+}
+
+\makeatletter
+\newcommand\mpar@math[3]{\ensuremath{\left(#1\right)\ifnempty{#2}{_{#2}}\ifnempty{#3}{^{#3}}}}
+\newcommand\mpar@text[3]{\ensuremath{(#1)\ifnempty{#2}{_{#2}}\ifnempty{#3}{^{#3}}}}
+\newcommand\mpar@belowabove[3]{\mathchoice{\mpar@math{#1}{#2}{#3}}{\mpar@text{#1}{#2}{#3}}{\mpar@text{#1}{#2}{#3}}{\mpar@text{#1}{#2}{#3}}}
+
+\def\mpar@grabbelow#1#2#3_#4{%
+  \mpar@grab{\ifnempty{#1}{#1, }#4}{#2}{#3}%
+}
+\def\mpar@grabbove#1#2#3^#4{%
+  \mpar@grab{#1}{\ifnempty{#2}{#2, }#4}{#3}%
+}
+\newcommand\mpar@grab[3]{%
+  \@ifnextchar_{\mpar@grabbelow{#1}{#2}{#3}}%
+  {\@ifnextchar^{\mpar@grababove{#1}{#2}{#3}}%
+  {\mpar@belowabove{#3}{#1}{#2}}}%
+}
+
+\newcommand\mpar{\mpar@grab{}{}}
+\makeatother
+
+\newcommand\funp{\mpar}
+\newcommand\funu[1]{\ifnempty{#1}{\funp{#1}}}
+\newcommand\fund[2]{\ifnempty{#1#2}{\funp{\sep{#1}{#2}}}}
+\newcommand\funt[3]{\ifnempty{#1#2#3}{\funp{\sept{#1}{#2}{#3}}}}
+\newcommand\funq[4]{\ifnempty{#1#2#3#4}{\funp{\sepq{#1}{#2}{#3}{#4}}}}
+
+\newcommand\sep[2]{#1\ifnempty{#1}{\ifnempty{#2}{,}}#2}
+\newcommand\sept[3]{\sep{#1}{#2}\ifnempty{#1#2}{\ifnempty{#3}{,}}#3}
+\newcommand\sepq[4]{\sept{#1}{#2}{#3}\ifnempty{#1#2#3}{\ifnempty{#4}{,}}#4}
+
+\newcommand{\eqdef}{\triangleq}
+
+% comments
+
+\usepackage{todonotes}
+\newcommand\todoi[1]{\todo[inline,caption={}]{#1}}
+\newcommand{\as}[1]{\todo[color=blue!30,caption={},size=\tiny]{#1}}
+\newcommand{\asi}[1]{\todo[color=blue!30,inline]{#1}}
+\renewcommand{\ln}[1]{\todo[color=magenta!50,caption={},size=\tiny]{#1}}
+\newcommand{\lni}[1]{\todo[color=magenta!50,inline]{#1}}
+
+% lists and sets
+\newcommand\cons[2]{#1; #2}
+\newcommand\emptylist{[]}
+\newcommand\dlist[1]{\left[#1\right]}
+\newcommand\singlelist[1]{\dlist{#1}}
+\newcommand\lconcat{+\!\!+}
+\newcommand\lcons{{::}}
+
+\newcommand\mset[2][]{%
+    \ifempty{#2#1}%
+	    {\emptyset}%
+	    {\left\{%
+		    %\begin{gathered}{c}%
+            #1%
+            \ifnempty{#1}{\middle|}%
+		    #2%
+		    %\end{gathered}%
+	    \right\}}%
+}
+
+% tuples
+
+% \newcommand\myvecbase[3][]{\overrightarrow{\ifnempty{#1}{#1\funu}{#2_{#3}}}}
+
+% Given:
+% #1 (facultative): an identifier, meant to mean a function (if absent, it will just not be written),
+% #2: a function taking a number.
+% #3: the maximum number.
+% Generates #1(#2{1})..#1(#2{#3})
+\newcommand\myvecbase[3][]{\ifnempty{#1}{#1\funu}{#2{1}}..\ifnempty{#1}{#1\funu}{#2{#3}}}
+
+% The p and s variants respectively add parentheses and braces.
+\newcommand\myvecm{\myvecbase}
+\newcommand\myvecmp[3][]{\mpar{\myvecm[#1]{#2}{#3}}}
+\newcommand\myvecms[3][]{\mset{\myvecm[#1]{#2}{#3}}}
+
+% Same, but the #2 function takes a facultative argument (possibly followed
+% by a third mandatory one, which will be instanciated empty).
+\newcommand\mandatorytofacultative[2]{#1[#2]{}}
+\newcommand\myvec[2][]{\myvecbase[#1]{\mandatorytofacultative{#2}}}
+\newcommand\myvecp[3][]{\mpar{\myvec[#1]{#2}{#3}}}
+\newcommand\myvecs[3][]{\mset{\myvec[#1]{#2}{#3}}}
+
+% Same, but #2 is now an identifier, which will be subscripted the index.
+\newcommand\mandatorytoindex[2]{#1\ifnempty{#2}{_{#2}}}
+\newcommand\myveci[2][]{\myvecbase[#1]{\mandatorytoindex{#2}}}
+\newcommand\myvecip[3][]{\mpar{\myveci[#1]{#2}{#3}}}
+\newcommand\myvecis[3][]{\mset{\myveci[#1]{#2}{#3}}}
+
+% Given:
+% #3: an equivalent of \mapsto
+% #1: the “from” part of the mapping.
+% #2: the “from” internal command, taking facultatively an index.
+% #4: the “to” part of the mapping.
+% #5: the “to” internal command, taking facultatively an index.
+% #6: the maximum number.
+% Generates a sequence of mappings #2[1] \mapsto #5[1]..#2[#6] \mapsto #5[#6],
+% or #1(#2[1]) \mapsto #1(#5[1])..#1(#2[#6]) \mapsto #1(#5[#6]),
+\makeatletter
+\newcommand\myvecmap@fun[6]{\ifnempty{#1}{#1\funu}{#2[#6]{}} #3 \ifnempty{#4}{#4\funu}{#5[#6]{}}}
+\newcommand\myvecmap[6]{%
+    \myvecbase{\myvecmap@fun{#1}{#2}{#3}{#4}{#5}}{#6}}
+%   \ifnempty{#1}{#1\funu}{#2[1]{}} #3 \ifnempty{#4}{#4\funu}{#5[1]{}}%
+%   ..\ifnempty{#1}{#1\funu}{#2[#6]{}} #3 \ifnempty{#4}{#4\funu}{#5[#6]}}
+\makeatother
+
+% misc
+\newcommand\dom{\mathit{dom}\funu}
+\newcommand\true{\ensuremath{\top}}
+
+% variables
+\newcommand{\tvar}[1][]{x_{t\ifnempty{#1}{_{#1}}}}
+\newcommand{\fvar}[1][]{x_{f\ifnempty{#1}{_{#1}}}}
+\DeclareDocumentCommand{\svar}{ m O{} }{#1{\ifnempty{#2}{_{#2}}}}
+\newcommand{\ivar}[1][]{x_{\sigma\ifnempty{#1}{_#1}}}
+\newcommand{\ovar}{x_o}
+
+% Sorts and Terms
+\newcommand\Sort[1][\typenv]{\ensuremath{\mathit{Sort}_{#1}\funu}}
+\newcommand\sort[1][]{\ensuremath{s\ifnempty{#1}{_{#1}}}}
+\newcommand\sortp[1][]{\ensuremath{s'\ifnempty{#1}{_{#1}}}}
+\newcommand\Tvar{\ensuremath{\mathit{Tvar}\funu}}
+\newcommand\sig{\ensuremath{\mathit{sig}\funu}}
+\newcommand{\termenv}{E}
+\newcommand{\term}[1][]{t\ifnempty{#1}{_{#1}}}
+\newcommand{\termp}[1][]{t'\ifnempty{#1}{_{#1}}}
+\newcommand{\progpoint}{\texttt{pp}}
+\newcommand\ppe{\epsilon}
+\newcommand\ppc[3][]{\ifnempty{#2}{#2}{\cdot}\ifnempty{#3}{\ifempty{#1}{#3}{#3[#1]}}}
+\newcommand\cppv[3][]{\ifnempty{#2}{#2}{\rule[0.5ex]{2pt}{0.5pt}}\ifnempty{#3}{\ifempty{#1}{#3}{#3[#1]}}}
+\newcommand\syntaxcontraint[1]{\left[#1\right]}
+\newcommand\subterm[2]{#1@#2}
+\newcommand{\ppenv}{\mathit{HPP}}
+\newcommand{\match}[4]{#1 = #3\funu{#2}:#4}
+
+% Rules
+\newcommand{\bvar}{V}
+
+\newcommand\rulen[1]{\textit{#1}}
+\newcommand\Rule[4]{\ensuremath{\rulen{#1}{\mpar{#2}} \coloneqq #3_{#4}}}
+\newcommand\Rulea[4]{\ensuremath{\rulen{#1}{\mpar{#2}} & \coloneqq #3_{#4}}} % Only to be used in an {align*} environment.
+\newcommand{\Rules}{\ensuremath{\mathit{Rules}}}
+
+
+\newcommand\derivH{H}
+\newcommand\letin[2]{\operatorname{let}#1=#2\operatorname{in}}
+\newcommand\skexist[2]{\operatorname{let}#1:#2\operatorname{in}}
+\newcommand\deriv[2]{{\texttt{#1}}~{#2}}
+\newcommand\branches[1]{\mpar{#1}}
+\newcommand\branchesV{\branches}
+\newcommand{\eqp}{\mathrel{?\!\vartriangleright}}
+\newcommand\filter[3]{#1\funu{#2}\ifnempty{#3}{\eqp #3}}
+
+\newcommand{\bcons}[2]{#1 \mathrel{\Arrowvert} #2}
+\newcommand{\bnil}{{\bullet}}
+
+\newcommand{\skel}[1][]{S{\ifnempty{#1}{_{#1}}}}
+\newcommand{\bone}[1][]{B{\ifnempty{#1}{_{#1}}}}
+
+\newcommand\judgment[3]{\ifnempty{#1}{#1\ifnempty{#2}{, }}#2 \Downarrow #3}
+
+% While Rules
+%% Sorts
+\newcommand\litS{\ensuremath{\mathit{lit}}}
+\newcommand\identS{\ensuremath{\mathit{ident}}}
+\newcommand\exprS{\ensuremath{\mathit{expr}}}
+\newcommand\statS{\ensuremath{\mathit{stat}}}
+\newcommand\stackS{\ensuremath{\mathit{stack}}}
+\newcommand\valS{\ensuremath{\mathit{val}}}
+
+%% Syntax
+\newcommand\jsid[2][]{{\textup{\texttt{\small #2}}\ifthenabove{#1}}}
+\newcommand\Var{\ensuremath{\mathit{Var}}}
+\newcommand\constn{\mathit{const}} 
+\newcommand\const[1]{\constn\funu{#1}}
+\newcommand\varn{\mathit{var}} 
+\newcommand\var[1]{\varn\funu{#1}}
+\newcommand\access[1]{!#1}
+\newcommand{\erefn}{\ensuremath{\mathit{ref}}}
+\newcommand\eref[1]{\erefn\funu{#1}}
+\newcommand{\ein}{\ensuremath{\mathit{in}}}
+\newcommand{\eoutn}{\ensuremath{\mathit{out}}}
+\newcommand{\eout}[1]{\eoutn\mpar{#1}}
+\newcommand\sskip{\mathit{skip}}
+\newcommand\sthrow{\mathit{throw}}
+\newcommand\iname{\mathit{if}}
+\newcommand\wname{\mathit{while}}
+\newcommand\asnescape[2]{#1\ {:=}\ #2}
+\newcommand{\heapwrite}[2]{#1 \leftarrow #2}
+\newcommand\seq[2]{{#1};\ #2}
+\newcommand\stry[2]{\mathit{try} \, #1 \, \mathit{catch} \, #2}
+\newcommand\sif[3]{\iname\ifnempty{#1#2#3}{\,#1\,#2\ifnempty{#3}{\,#3}}}
+\newcommand\while[2]{\wname\ifnempty{#1#2}{\,#1\,#2}}
+\newcommand{\progvar}{\jsid{Var}}
+\newcommand{\proglit}{\jsid{Lit}}
+
+%% Interpretations
+\newcommand{\interpIn}{\Sigma}
+\newcommand{\interpOut}{O}
+\newcommand\vdefined[1]{{#1\downarrow}}
+\DeclareDocumentCommand{\interpDef}{ O{\interpIn} O{I} m }{\ensuremath{\vdefined{\left\llbracket #1, #3 \right\rrbracket^{#2}}}}
+\DeclareDocumentCommand{\interp}{ O{\interpIn} O{I} m O{\interpOut}}{\ensuremath{%
+    \left\llbracket #3 \right\rrbracket\ifnempty{#2}{^{#2}}\ifnempty{#1}{\mpar{#1}}%
+    \ifnempty{#4}{ \Downarrow #4}}}
+
+\newcommand{\interpbIn}[1][\bvar]{\interpIn_{#1}}
+\newcommand{\interpbOut}[1][\bvar]{\interpOut_{#1}}
+\DeclareDocumentCommand{\interpbDef}{ O{\interpIn} O{I} m O{\bvar}
+}{\ensuremath{\vdefined{\left\llbracket #3
+\right\rrbracket^{#2}_{#4}\mpar{#1}}}}
+\DeclareDocumentCommand{\interpb}{ O{\interpIn} O{I} m O{\interpOut}
+  O{\bvar}}{\ensuremath{\left\llbracket #3 \right\rrbracket\ifnempty{#2}{^{#2}}\ifnempty{#5}{_{#5}}\mpar{#1}
+    \Downarrow #4}}
+
+\DeclareDocumentCommand{\merge}{ O{I} m m O{\interpIn'} O{\bvar}
+}{\ensuremath{\interpb[#2][#1]{\bigoplus_{#3}}[#4][#5]}}
+\newcommand{\outfun}{\mathcal{O}}
+\newcommand{\outfuna}{\abs{\mathcal{O}}}
+
+\newcommand{\csem}{\ensuremath{\Downarrow}}
+\newcommand{\asem}{\ensuremath{\abs{\csem}}}
+\newcommand{\ssem}{\ensuremath{\abs{\csem_{s}}}}
+
+\DeclareDocumentCommand{\typvar}{ m O{} }{\ensuremath{\tau\ifnempty{#1}{#1}\ifnempty{#2}{_{#2}}}}
+\newcommand\typenv{\Gamma}
+\newcommand\extsymbol{ + }
+\newcommand\extenv[3]{#1\extsymbol#2\leftarrow#3}
+\newcommand\extenvn[4]{#1\extsymbol\mpar{#2_1 \mapsto#3_1..#2_{#4} \mapsto#3_{#4}}}
+\newcommand\envrestr[2][\bvar]{\left.#2\right|_{#1}} 
+\newcommand\typin{\mathit{in}\funu}
+\newcommand\typout{\mathit{out}\funu}
+\newcommand{\typsig}{\mathit{fsort}\funu}
+\newcommand{\typinterp}[4][V]{#2 \vdash_{#1} #3: #4}
+\newcommand{\dfvarset}{\ensuremath{\mathcal{D}}}
+\DeclareDocumentCommand{\wfinterp}{ O{\typenv,\dfvarset} m
+  O{\mpar{\typenv',\dfvarset'}} O{} }{\interpb[#1][\texttt{wf}]{#2}[#3][#4]}
+
+\newcommand\valT{\mathit{val}}
+\newcommand\intT{\mathit{int}}
+\newcommand\boolT{\mathit{bool}}
+\newcommand\locT{\mathit{loc}}
+\newcommand\stateT{\mathit{store}}
+\newcommand\heapT{\mathit{heap}}
+\newcommand\IOstateT{\mathit{state}}
+\newcommand\valIOstateT{\mathit{valState}}
+\newcommand\excIOstateT{\mathit{excState}}
+\newcommand\inT{\mathit{in}}
+\newcommand\outT{\mathit{out}}
+\newcommand\unit{()}
+\newcommand\resundef{\bot}
+
+\newcommand{\concrenv}{\Sigma}
+\newcommand{\quadset}{Q}
+
+\newcommand\Some{\texttt{Some}\funu}
+\newcommand\None{\texttt{None}}
+
+% Concrete interpretation of a filter, expressed as a relation.
+\DeclareDocumentCommand{\concrinterp}{ O{\concrenv,\quadset} m
+  O{\mpar{\concrenv',\quadset}} O{} }{ \interpb[#1][]{#2}[#3][#4] }
+
+\DeclareDocumentCommand{\filterinterp}{ O{} m m O{\Downarrow} m }{\ensuremath{\left\llbracket #2
+\right\rrbracket^{#1}\ifnempty{#3}{\funu{#3}\ifnempty{#5}{#4}}#5}}
+
+\newcommand{\concrfilter}[3]{\filterinterp[]{#1}{#2}{#3}}
+\newcommand{\concrfilterDef}[2]{\vdefined{\filterinterp{#1}{#2}[]{}}}
+\newcommand{\notconcrfilter}[2]{\filterinterp{#1}{#2}[\not\Downarrow]{}}
+\newcommand{\cinterpf}[1][]{\immediateconsequence\ifnempty{#1}{^{#1}}\funu}
+
+\newcommand{\cval}[1][]{v\ifnempty{#1}{_{#1}}}
+\newcommand{\cvalp}[1][]{v'\ifnempty{#1}{_{#1}}}
+
+\newcommand{\aterm}[1][]{\term^{\#}\ifnempty{#1}{_{#1}}}
+\newcommand{\atermp}[1][]{\term^{\#\prime}\ifnempty{#1}{_{#1}}}
+
+\newcommand{\aval}[1][]{v^{\#}\ifnempty{#1}{_{#1}}}
+\newcommand{\avalp}[1][]{v\ifnempty{#1}{_{#1}}^{\#\prime}}
+\newcommand{\avalpp}[1][]{v\ifnempty{#1}{_{#1}}^{\#\prime\prime}}
+
+\newcommand{\cstate}[1][]{\sigma\ifnempty{#1}{_{#1}}}
+\newcommand{\astate}[1][]{\sigma^{\#}\ifnempty{#1}{_{#1}}}
+\newcommand{\astatep}[1][]{\sigma^{\#\prime}\ifnempty{#1}{_{#1}}}
+\newcommand{\astatepp}[1][]{\sigma^{\#\prime\prime}\ifnempty{#1}{_{#1}}}
+
+\newcommand{\abstrint}[3]{\interp[#1][\#]{#2}[#3]}
+
+% Abstract interpretation of a skeleton or bone (mandatory argument).
+% The facultative arguments describe the input and output states
+% The last facultative argument is an index of the abstract interpretation.
+% Note about the \absflag argument that indicates whether we are missing this branch.
+\DeclareDocumentCommand{\abstrinterp}{ O{\absflag} O{\abstrenv,\abstripleset}  m
+  O{\absflag} O{\abstrenvp,\abstripleset} O{} }{ \interpb[#1,#2][\#]{#3}[\mpar{#4,#5}][#6] }
+
+\newcommand{\concr}{\gamma}
+
+\newcommand{\abstrintDef}[3][\bvar]{\interpbDef[#2][\#]{#3}[#1]}
+\newcommand{\abstrenv}[1][]{\Sigma^\#\ifnempty{#1}{_{#1}}}
+\newcommand{\abstrenvp}[1][]{\Sigma^{\#\prime}\ifnempty{#1}{_{#1}}}
+\newcommand{\abstrenvpp}[1][]{\Sigma^{\#\prime\prime}\ifnempty{#1}{_{#1}}}
+\newcommand\abstripleset[1][]{{T^\#\ifnempty{#1}{_{#1}}}} % An abstract set of triples.
+\newcommand{\abstrfilter}[3]{\filterinterp[\#]{#1}{#2}[=]{#3}}
+\newcommand{\abstrfilterDef}[2]{\vdefined{\filterinterp[\#]{#1}{#2}[]{}}}
+
+% Given:
+% #2: The argument of the immediate consequence (a set of triples)
+% #1 (facultative): an exponent, to apply the immediate consequence several times.
+% Builds the abstract immediate consequence.
+\newcommand\ainterpf[1][]{{\immediateconsequence^\#}\ifnempty{#1}{^{#1}}\funu}
+
+\newcommand{\stSplit}{\mathit{Sp}\funu}
+\newcommand\sinterpf[1]{\stSplit{\ainterpf{\stSplit{#1}}}}
+
+\newcommand\Kcombinator[2]{#1}
+
+\makeatletter
+\def\abot@complete#1[#2]{\bot{\ifempty{#2}{{\ifnempty{#1}{_{#1}}}}{_{#1[#2]}}}}
+\newcommand\abot[1]{\@ifnextchar[{\abot@complete{#1}}{\abot@complete{#1}[]}}
+\makeatother
+
+%% Consistency
+\newcommand\OKst[1][]{\mathit{OKst}\ifnempty{#1}{_{#1}}\fund}
+\newcommand\OKout[1][]{\mathit{OKout}\ifnempty{#1}{_{#1}}\fund}
+
+%% Equation Generation
+
+\newcommand{\ppgen}[1][t_0]{\ppenv_{#1}\funt}
+\newcommand{\eqset}{\mathcal{C}}
+\newcommand{\eqenv}{D_e}
+\newcommand{\eqdfvar}[1][N]{\mathcal{D}_{\rulen{#1}}\funu}
+\newcommand{\eqgen}[3][\rulen{N},\progpoint,\eqset]{\interp[#1][c]{#2}[#3]}
+\newcommand{\eqgenb}[3][\rulen{N},\progpoint,\eqset]{\interpb[#1][c]{#2}[#3]}
+\newcommand{\eqfilter}[3]{\filterinterp[c]{#1}{#2}[=]{#3}}
+\newcommand\Gen{\mathit{Gen}\funu}
+\newcommand\Gent{\mathit{PP}\funu}
+\newcommand{\bhist}{\texttt{bb}}
+\newcommand\bbe{\epsilon}
+\newcommand\bbc[2]{\ifnempty{#1}{#1}.\ifnempty{#2}{#2}}
+
+\newcommand\svareq[3]{\svar{#1}[#3] \leftarrow {#2}\ifnempty{#3}{_{#3}}}
+\newcommand\fvareq[3]{\fvar[#1#3]{} \leftarrow {#2}\ifnempty{#3}{_{#3}}}
+\newcommand\tvareq[3]{\tvar[#1#3]{} \leftarrow {#2}\ifnempty{#3}{_{#3}}}
+
+\newcommand\Val{\ensuremath{\mathit{Val}}}
+\newcommand\val{\ensuremath{v}}
+
+\makeatletter % There may be a simpler way to do this.
+% See usage below.
+\newcommand\@absstarnothing[1]{\ensuremath{\mathrel{#1^{\#}}}}
+\newcommand\@absnostarnothing[1]{\ensuremath{{#1^{\#}}}}
+\def\@absstarbrack#1[#2]{\ensuremath{\mathrel{#1^{\#}\left[#2\right]}}}
+\def\@absnostarbrack#1[#2]{\ensuremath{{#1^{\#}\left[#2\right]}}}
+\newcommand\@absstarnounder[1]{%
+    \@ifnextchar[{\@absstarbrack{#1}}{\@absstarnothing{#1}}}
+\newcommand\@absnostarnounder[1]{%
+    \@ifnextchar[{\@absnostarbrack{#1}}{\@absnostarnothing{#1}}}
+\def\@absstarunder#1_#2{\ensuremath{\mathrel{#1_{#2}^{\#}}}}
+\def\@absnostarunder#1_#2{\ensuremath{{#1_{#2}^{\#}}}}
+\newcommand\@absstarchoice[1]{%
+    \@ifnextchar_{\@absstarunder{#1}}{\@absstarnounder{#1}}}
+\newcommand\@absnostarchoice[1]{%
+    \@ifnextchar_{\@absnostarunder{#1}}{\@absnostarnounder{#1}}}
+\newcommand\abs{\@ifstar\@absstarchoice\@absnostarchoice}
+% Usages:
+%   \abs{value}
+%   \abs{value}_index
+%   \abs{value}[arg]
+%   \abs*{relation}
+%   \abs*{relation}_index
+%   \abs*{relation}[arg]
+\makeatother
+\newcommand\bigabs[1]{\mathrel{\abs*{{#1}}}}
+
+% Was \newcommand\absint[1]{\texttt{A}\funu{#1}} %
+\newcommand\absint[1]{\llbracket #1 \rrbracket^{\#}}
+%  need to change the concrete version accordingly?
+
+\newcommand*\mathsc[1]{\mathrm{\textsc{#1}}}
+
+
+\newcommand\itvl[2]{[ #1 , #2]}
+
+\newcommand\ptrue{\textit{true}}
+\newcommand\pfalse{\textit{false}}
+\newcommand\btrue{\ptrue}%{\texttt{tt}}
+\newcommand\bfalse{\pfalse}%{\texttt{ff}}
+
+\newcommand\eread[2]{#1\funu{#2}}
+\newcommand\ewrite[3]{#2\left[#1 \leftarrow #3\right]}
+
+\newcommand\NSRname{\mathit{NS}}
+\newcommand\NSR[1]{\NSRname\ifnempty{#1}{_{\mathsc{#1}}}\funu} % Non-structural rule.
+\newcommand\immediateconsequence{\mathcal{H}}
+\newcommand\immediateconsequenceglue[1][]{\abs{G\ifnempty{#1}{_{#1}}}}
+
+\newcommand\evalr{\ensuremath{\Downarrow}}
+\newcommand\cinterp[3][\evalr]{\ensuremath{\left\llbracket #2 \right\rrbracket_{#1}\funu{#3}}}
+\newcommand\ainterp[3][\abs*\evalr]{\ensuremath{\abs{\left\llbracket #2 \right\rrbracket}_{#1}\funu{#3}}}
+
+\newcommand\extsig[3]{\ifnempty{#1}{#1\extsymbol }#2 \mapsto #3}
+\newcommand\extsign[3]{#1\extsymbol \overrightarrow{#2 \mapsto #3}}
+
+% Given
+% #1: an environment (which can be empty)
+% #3 and #5: a command taking facultatively a number, respectively representing the key and the value.
+% #2 and #4 (facultative): a symbol representing a function that will be respectively applied to the arguments #3 and #5.
+% #3 (facultative): the number of terms to be added.
+% Builds the extended environment.
+\DeclareDocumentCommand{\extsigvec}{ m O{} m O{} m O{n} }{\ifnempty{#1}{#1\extsymbol}\myvecmap{#2}{#3}{\mapsto}{#4}{#5}{#6}}
+
+\newcommand\outst[2]{\mathit{out}\funu{#1,#2}}
+
+\newcommand{\While}{\textsc{While}}
+\newcommand\wtrue{\texttt{true}}
+\newcommand\wfalse{\texttt{false}}
+\newcommand\wint{\texttt{n}}
+
+\newcommand{\halt}{\bot}
+\newcommand{\cont}{\top}
+\newcommand{\absflag}{f}
+
+\newcommand\K{\ensuremath{\mathbb{K}}}
+
+
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "new_necro"
+%%% End:

@@ -1,0 +1,148 @@
+\documentclass[runningheads]{llncs}
+
+\title{Semantics in Skel and Necro}
+
+\author{Martin Andrieux\inst{1} \and Alan Schmitt\inst{2}}
+
+\institute{ENS Rennes, France \and Inria, France}
+
+\authorrunning{M. Andrieux and A. Schmitt}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\newcommand{\skinl}[1]{\mintinline{sk.py -x}{#1}}
+\newcommand{\mlinl}[1]{\mintinline{ocaml}{#1}}
+\newcommand{\gettype}[4][]{\ensuremath{#3\vdash_{#1}{#2}:#4}}
+\newcommand{\evalsymb}[1][]{\Downarrow_{#1}}
+\newcommand{\eval}[4][]{#3,#2\evalsymb[#1]#4}
+\newcommand{\evalterm}[3]{\eval[t]{#1}{#2}{#3}}
+\newcommand{\evalskel}[3]{\eval[S]{#1}{#2}{#3}}
+\newcommand{\evapp}[2]{#1\evalsymb[\operatorname{app}]#2}
+\newcommand{\nonspec}[1]{\llbracket #1 \rrbracket}
+\newcommand{\getmatch}[3]{#1\extsymbol#2\operatorname{match}#3}
+\newcommand{\nomatch}[2]{#1\not\mapsto#2}
+
+\newcommand{\clos}[3]{\left\langle#1,#2,#3\right\rangle}
+\newcommand{\unspec}[2]{\left\lceil#1,#2\right\rceil}
+
+\newcommand{\ret}{\operatorname{ret}}
+\newcommand{\ctype}{\operatorname{ctype}}
+\newcommand{\ftype}{\operatorname{ftype}}
+\newcommand{\fields}{\operatorname{fields}}
+\newcommand{\arity}{\operatorname{arity}}
+
+\DeclareUnicodeCharacter{03BB}{\(\lambda\)}
+\DeclareUnicodeCharacter{03C4}{\(\tau\)}
+\DeclareUnicodeCharacter{2205}{\(\)}
+
+
+\usepackage{listing}
+\usepackage{comment}
+
+\input{macros}
+
+
+%%%%%% TikZ stuff
+\usetikzlibrary{shapes,positioning,petri,backgrounds,fit,calc,chains,math,arrows,arrows.meta,
+  decorations.markings}
+\newenvironment{centertikz}[1][]{%
+  \begin{center}%
+	\begin{tikzpicture}[#1]
+}{
+	\end{tikzpicture}%
+  \end{center}
+}
+\tikzset{%
+  locnode base/.style={rectangle, rounded corners = 2pt, text centered, minimum height = 5mm, minimum width = 10mm, bottom color = white, top color = white},
+  locnode/.style = {locnode grey},
+  locnode grey/.style = {locnode base, draw = lightgray, bottom color = gray},
+  locnode yellow/.style = {locnode base, draw = yellow, bottom color = orange},
+}
+
+
+\setcounter{secnumdepth}{3}
+
+
+\begin{document}
+
+\maketitle
+
+%TODO mandatory: add short abstract of the document
+\begin{abstract}
+  We present Pyskel, a formalization of Python semantics in Skel.
+  We describe a subset of the Python programming language including assignments,
+  function calls, object oriented features and exceptions.
+  This formalization can be used to automatically derive interpreters and debuggers.
+\end{abstract}
+
+\keywords{semantics \and specification \and programming language \and Python \and
+  OCaml.}
+
+\section{Introduction}\label{sec:introduction}
+
+The Python programming language is widely used by programmers,
+but it lacks an official and clear specification, the
+\href{https://docs.python.org/3/reference/}{\emph{Python Language Reference}} and
+\href{https://docs.python.org/3/library/}{\emph{Python Standard Library}}
+begin the closest things to it.
+
+A formal specification of a programming language is necessary to prove properties on programs.
+Moreover,
+
+We propose a Skel implementation of Raphaël Monat's Python pure semantics\cite{Monat2021},
+as mentionned in \cite{noiset:hal-03784478}
+
+\section{Fundamental Concepts}\label{sec:skel}
+
+\subsection{Evaluation Monad}\label{sec:skelex}
+A python program is represented in Skel by a data structure very close to the python Abstract Syntax Tree.
+In such a way that we finally have to execute a list of Python statments.
+The evaluation takes place in a monad \texttt{m} containing the following context:
+\begin{itemize}
+\item A read-only state, containing the local environment and built-in objects.
+\item A read-write state, containing the heap and the scopes
+\item The runtime state: either \texttt{Cur} for a successful computation, or \texttt{Flag}:
+  for control flow operations, such as \texttt{Return}, \texttt{Break}, \texttt{Continue}, or \texttt{Exception}.
+\end{itemize}
+The manipulation of this information is detailed in the following sections.
+
+Writting the evaluator in the monad makes code simpler to understand for multiple reasons.
+First, if a function does not use a part of the state, the relevent part will not be visible at all in the function definition
+(while in a more classical approach based on argument passing, functions have to take additional parameters and pass them to other functions without modifying them).
+Secondly, code can be written in an imperative style.
+
+
+\subsection{Evaluation}
+
+
+\section{Scopes Management}
+Scopes are not handled in Monat's thesis, we present an extension of the semantics allowing mutiple scopes in Pyskel.
+In the semantics, there is a unique environment \(\mathcal E \overset{\text{def}}{=} \mathsf{Id} \rightharpoonup \mathsf{Addr} \cup \mathtt{LocalUndef}\).
+The keywords \texttt{global} and \texttt{nonlocal} are not supported.
+Undefined variables are detected at parsing time and illformed programs are not accepted.
+
+\subsection{Scopes in Python}
+We expose in this section the main concepts of scope management in Python through a few examples.
+
+First, the \emph{global scope} contains all the toplevel declarations, it is a mapping from varialbe names to heap addresses.
+
+\subsubsection{Function body}
+The evaluation of a function requires the creation of a fresh scope, containing the local variables and the function arguments.
+
+To access global variable from the body of a function, one must use the \texttt{global} keyword.
+
+\newpage
+\bibliographystyle{plainurl}% the mandatory bibstyle
+\bibliography{paper}
+
+\appendix
+\newpage
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% TeX-command-extra-options: "-shell-escape"
+%%% End:
