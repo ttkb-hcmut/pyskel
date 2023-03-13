@@ -1,6 +1,6 @@
 # __result__
 
-x = 5
+x = 42
 
 def foo():
     return x

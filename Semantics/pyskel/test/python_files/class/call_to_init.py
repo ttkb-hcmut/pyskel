@@ -3,7 +3,7 @@
 class Foo:
     def __init__(self, y):
         self.x = y
-        x = y
+        x = 0
 
 
 foo = Foo(30)

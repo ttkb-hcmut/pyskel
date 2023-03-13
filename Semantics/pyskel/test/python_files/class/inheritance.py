@@ -2,13 +2,11 @@
 
 
 class Foo:
-    x = 0
     def m_foo(self):
         self.y = 0
 
 class Bar(Foo):
-    z = 0
-
+    pass
 
 bar = Bar()
 bar.m_foo()

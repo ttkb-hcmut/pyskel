@@ -1,6 +1,5 @@
 # __result__
 
-
 class Foo:
     x = 2
     def f(self):

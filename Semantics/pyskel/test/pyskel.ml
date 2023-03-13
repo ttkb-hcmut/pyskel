@@ -1,10 +1,10 @@
 open Pyskel.Utils.InterInst.Interpreter
 module Utils = Pyskel.Utils
 
-let test_file builtins heap file_name =
-  Printf.printf "\n\n##################\n";
+let test_file (builtins, heap) file_name =
+  Printf.printf "\n\n######\n";
   Printf.printf "## %s\n" file_name;
-  Printf.printf "##################\n";
+  Printf.printf "##\n";
   (* Open file and get contents *)
   let file = open_in file_name in
 
@@ -44,14 +44,18 @@ let test_file builtins heap file_name =
   try loop () with _ -> close_in reader
 
 
+let test_dir data dir =
+  if Sys.is_directory dir then begin
+    let files = Sys.readdir dir in
+    Array.iter (fun file -> test_file data (dir ^ Filename.dir_sep ^ file)) files;
+  end
+
 let _ =
   (* Read file name from command line args *)
   let test_directory = "python_files" in
 
   if Stdlib.not (Sys.is_directory test_directory) then
       Printf.fprintf stderr "%s is not a directory" test_directory;
-
-  let files = Sys.readdir test_directory in
   Sys.chdir test_directory;
 
   let prelude = open_in "prelude.py" in
@@ -59,7 +63,5 @@ let _ =
   let (builtins, (_, heap)) = Utils.eval_file contents in
   close_in prelude;
 
-  Array.iter (fun file ->
-      if String.starts_with ~prefix:"test" file
-      then test_file builtins heap file else ())
-    files
+  let subdirs = Sys.readdir "." in
+  Array.iter (test_dir (builtins, heap)) subdirs

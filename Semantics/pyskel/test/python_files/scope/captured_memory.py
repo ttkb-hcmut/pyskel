@@ -1,9 +1,7 @@
 # __result__
 
-z = 8
 def f():
-    global z
-    y = z
+    y = 0
     def set_and_return(n):
         nonlocal y
         y = n
@@ -11,4 +9,5 @@ def f():
     return set_and_return
 
 
-__result__ = f()(42)
+set_and_return = f()
+__result__ = set_and_return(42)

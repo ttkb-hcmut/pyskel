@@ -1,29 +1,20 @@
 # __result__
 def foo():
     global set
-    global incr
     global get
 
     x = 0
 
-    def set():
+    def set(y):
         nonlocal x
-        x = 0
-
-    def incr():
-        nonlocal x
-        x = 42
+        x = y
 
     def get():
         nonlocal x
         return x
 
-    return get
-
 
 foo()
-
-set()
-incr()
+set(42)
 
 __result__ = get()
