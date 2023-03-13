@@ -1,7 +1,7 @@
 open Pyskel.Utils.InterInst.Interpreter
 module Utils = Pyskel.Utils
 
-let test_file file_name =
+let test_file builtins heap file_name =
   Printf.printf "\n\n##################\n";
   Printf.printf "## %s\n" file_name;
   Printf.printf "##################\n";
@@ -11,13 +11,10 @@ let test_file file_name =
   (* Get the things to print *)
   let first_line = input_line file in
   let thing_to_print = (String.sub first_line 1 (String.length first_line - 1)) in
-
   let contents = really_input_string file (in_channel_length file - String.length first_line - 1) in
   close_in file;
 
-  let prelude = open_in "prelude.py" in
-  let result = Utils.eval_file prelude contents in
-  close_in prelude;
+  let (_, result) = Utils.eval_file_with_prelude builtins heap contents in
 
   (* Eval file with pyskel *)
   match result with
@@ -57,7 +54,12 @@ let _ =
   let files = Sys.readdir test_directory in
   Sys.chdir test_directory;
 
+  let prelude = open_in "prelude.py" in
+  let contents = really_input_string prelude (in_channel_length prelude) in
+  let (builtins, (_, heap)) = Utils.eval_file contents in
+  close_in prelude;
+
   Array.iter (fun file ->
       if String.starts_with ~prefix:"test" file
-      then test_file file else ())
+      then test_file builtins heap file else ())
     files

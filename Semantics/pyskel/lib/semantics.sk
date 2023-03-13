@@ -185,18 +185,16 @@ val write_local ((id: id), (a: addr), (sid: scope_id)) : m<()> =
 
 val write_nonlocal' ((id: id), (a: addr), (sid: scope_id)) : m<()> =
   let a_scope =@ readScope sid in
-  let wl = write_local (id, a, sid) in
-  let action (f: flag) =
-    match f with
-    | Exn _ ->
-      let a_scope_up = scope_up a_scope in
-      match a_scope_up with
-      | Nothing -> setFlag<()> (Exn todoError)
-      | Just sup -> write_nonlocal' (id, a, sup)
-      end
-    | f -> setFlag<()> f
-    end in
-  catchFlag<()> (wl, action)
+  let f =? write_local (id, a, sid) in
+  match f with
+  | Exn _ ->
+    let a_scope_up = scope_up a_scope in
+    match a_scope_up with
+    | Nothing -> setFlag<()> (Exn todoError)
+    | Just sup -> write_nonlocal' (id, a, sup)
+    end
+  | f -> setFlag<()> f
+  end
 
 val write_nonlocal ((id: id), (a: addr), (sid: scope_id)) : m<()> =
   let a_scope =@ readScope sid in
@@ -322,6 +320,8 @@ val catchFlag<a> ((m: m<a>), (f: flag -> m<a>)) : m<a> =
   | Cur x -> return<a> x
   | Flag flg -> f flg
   end
+
+binder ? = catchFlag
 
 (* Read and Modify state *)
 val alloc (v:(objN, objS)) : m<addr> =
@@ -592,13 +592,11 @@ val eval_fun_call ((at_args: list<addr>), (a: list<id>), (loc: list<id>), (body:
 
   let localBodyEval = local<addr> (set_locals, bodyEvaluation) in
 
-  let catchReturn = \f:flag ->
-    match f with
-    | Ret a -> return<addr> a
-    | f -> setFlag<addr> f
-    end in
-
-  catchFlag<addr> (localBodyEval, catchReturn)
+  let flag =? localBodyEval in
+  match flag with
+  | Ret a -> return<addr> a
+  | f -> setFlag<addr> f
+  end
 
 val raise<a> (at_exn : addr) : m<a> =
   let baseException =@ readEnv _BaseException in
@@ -654,25 +652,24 @@ val eval_stmt (s: stmt) : m<()> =
     let at_exn =@ eval_expr e in
     raise<()> at_exn
   | STry (tbody, (exn, texc)) ->
-    let handler = \flag:flag ->
-      match flag with
-      | Exn raised ->
-        let baseException =@ readEnv _BaseException in
-        let at_exn =@ eval_expr exn in
-        let valid_exception =@ is_subclass_of (at_exn, baseException) in
-        match valid_exception with
-        | True ->
-          let exn_match_handler =@ is_instance_of (raised, at_exn) in
-          match exn_match_handler with
-          | True -> eval_stmts texc
-          | False -> return<()> ()
-          end
-        | False -> raise_exn<()> _TypeError
+    let _ = debug () in
+    let flag =? eval_stmts tbody in
+    match flag with
+    | Exn raised ->
+      let baseException =@ readEnv _BaseException in
+      let at_exn =@ eval_expr exn in
+      let valid_exception =@ is_subclass_of (at_exn, baseException) in
+      match valid_exception with
+      | True ->
+        let exn_match_handler =@ is_instance_of (raised, at_exn) in
+        match exn_match_handler with
+        | True -> eval_stmts texc
+        | False -> return<()> ()
         end
-      | _ -> return<()> ()
-      end in
-    let w = eval_stmts tbody in
-    catchFlag<()> (w, handler)
+      | False -> raise_exn<()> _TypeError
+      end
+    | _ -> return<()> ()
+    end
 
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.115 *)
   | SFunctionDef (name, args, body) ->

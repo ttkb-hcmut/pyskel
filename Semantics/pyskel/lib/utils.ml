@@ -176,13 +176,12 @@ let show_flag heap flag =
     Printf.sprintf "Flag is Exn:\n\t%s" (show_objn heap objn)
 
 
-let eval_file prelude contents =
-  (* Read Prelude *)
-  let prelude_contents = really_input_string prelude (in_channel_length prelude) in
 
+let eval_file_with_prelude builtins heap contents =
+  (* Read Prelude *)
   (* Parse program *)
   let a = Parser.with_context (fun context ->
-      Parser.Concrete.parse_module ~context (prelude_contents ^ contents)
+      Parser.Concrete.parse_module ~context contents
   ) in
 
   (* Check for parse error *)
@@ -195,8 +194,11 @@ let eval_file prelude contents =
   (* Eval file with pyskel *)
   let ast = translate_ast (Result.get_ok a) in
   let fs = M.extract (eval_stmts ast) in
+  builtins, M.extract (fs (builtins, heap))
+
+let eval_file contents =
   let (builtins, heap) = M.extract @@ initializedHeap () in
-  M.extract (fs (builtins,
+  eval_file_with_prelude builtins
     { global_scope = initialEnv
     ; scope_heap = initialHeap
-    ; heap = heap}))
+    ; heap = heap} contents
