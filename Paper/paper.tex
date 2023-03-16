@@ -130,7 +130,22 @@ First, the \emph{global scope} contains all the toplevel declarations, it is a m
 \subsubsection{Function body}
 The evaluation of a function requires the creation of a fresh scope, containing the local variables and the function arguments.
 
-To access global variable from the body of a function, one must use the \texttt{global} keyword.
+To modify a global variable from the body of a function, one must use the \texttt{global} keyword.
+By doing so, assignments to some variable \texttt{x} will effectively modify the global \texttt{x} without creating a local variable in the function body.
+
+\subsection{Scopes in Pyskel}
+The global state of the interpreter contains a \emph{scope heap} and an \emph{environment}.
+\begin{figure}[h]
+  \begin{minipage}{0.5\textwidth}
+    \begin{minted}[autogobble]{sk.py -x}
+      type env =
+      | Globl
+      | InFun (map<var_scope>, scope_id)
+      | InClass (map<var_scope>, scope_id)
+    \end{minted}
+  \end{minipage}
+  \caption{\texttt{env} type}
+\end{figure}
 
 \newpage
 \bibliographystyle{plainurl}% the mandatory bibstyle
