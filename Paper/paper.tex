@@ -1,83 +1,52 @@
-\documentclass[runningheads]{llncs}
-
-\title{Semantics in Skel and Necro}
-
-\author{Martin Andrieux\inst{1} \and Alan Schmitt\inst{2}}
-
-\institute{ENS Rennes, France \and Inria, France}
-
-\authorrunning{M. Andrieux and A. Schmitt}
+\documentclass[submission,copyright,creativecommons]{eptcs}
+\providecommand{\event}{SOS 2023} % Name of the event you are submitting to
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+\usepackage{minted}
+\usepackage{hyperref}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{iftex}
 
-\newcommand{\skinl}[1]{\mintinline{sk.py -x}{#1}}
-\newcommand{\mlinl}[1]{\mintinline{ocaml}{#1}}
-\newcommand{\gettype}[4][]{\ensuremath{#3\vdash_{#1}{#2}:#4}}
-\newcommand{\evalsymb}[1][]{\Downarrow_{#1}}
-\newcommand{\eval}[4][]{#3,#2\evalsymb[#1]#4}
-\newcommand{\evalterm}[3]{\eval[t]{#1}{#2}{#3}}
-\newcommand{\evalskel}[3]{\eval[S]{#1}{#2}{#3}}
-\newcommand{\evapp}[2]{#1\evalsymb[\operatorname{app}]#2}
-\newcommand{\nonspec}[1]{\llbracket #1 \rrbracket}
-\newcommand{\getmatch}[3]{#1\extsymbol#2\operatorname{match}#3}
-\newcommand{\nomatch}[2]{#1\not\mapsto#2}
+\ifpdf
+\usepackage{underscore}         % Only needed if you use pdflatex.
+\usepackage[T1]{fontenc}        % Recommended with pdflatex
+\else
+\usepackage{breakurl}           % Not needed if you use pdflatex only.
+\fi
 
-\newcommand{\clos}[3]{\left\langle#1,#2,#3\right\rangle}
-\newcommand{\unspec}[2]{\left\lceil#1,#2\right\rceil}
+\title{Skeletal Semantics of Python}
 
-\newcommand{\ret}{\operatorname{ret}}
-\newcommand{\ctype}{\operatorname{ctype}}
-\newcommand{\ftype}{\operatorname{ftype}}
-\newcommand{\fields}{\operatorname{fields}}
-\newcommand{\arity}{\operatorname{arity}}
-
-\DeclareUnicodeCharacter{03BB}{\(\lambda\)}
-\DeclareUnicodeCharacter{03C4}{\(\tau\)}
-\DeclareUnicodeCharacter{2205}{\(\)}
-
-
-\usepackage{listing}
-\usepackage{comment}
-
-\input{macros}
-
-
-%%%%%% TikZ stuff
-\usetikzlibrary{shapes,positioning,petri,backgrounds,fit,calc,chains,math,arrows,arrows.meta,
-  decorations.markings}
-\newenvironment{centertikz}[1][]{%
-  \begin{center}%
-	\begin{tikzpicture}[#1]
-}{
-	\end{tikzpicture}%
-  \end{center}
-}
-\tikzset{%
-  locnode base/.style={rectangle, rounded corners = 2pt, text centered, minimum height = 5mm, minimum width = 10mm, bottom color = white, top color = white},
-  locnode/.style = {locnode grey},
-  locnode grey/.style = {locnode base, draw = lightgray, bottom color = gray},
-  locnode yellow/.style = {locnode base, draw = yellow, bottom color = orange},
+\author{Martin Andrieux
+  \institute{ENS Rennes, France}
+  \email{martin.andrieux@ens-rennes.fr}
+  \and
+  Alan Schmitt
+  \institute{Inria, France}
+  \email{alan.schmitt@inria.fr}
 }
 
+\newcommand{\titlerunning}{A Longtitled Paper}
+\newcommand{\authorrunning}{R.J. van Glabbeek, C. Author \& Y.S. Else}
 
-\setcounter{secnumdepth}{3}
-
+\hypersetup{
+  bookmarksnumbered,
+  pdftitle    = {\titlerunning},
+  pdfauthor   = {\authorrunning},
+  pdfsubject  = {EPTCS},               % Consider adding a more appropriate subject or description
+  % pdfkeywords = {keyword1, keyword2} % Uncomment and enter keywords specific to your paper
+}
 
 \begin{document}
-
 \maketitle
 
-%TODO mandatory: add short abstract of the document
 \begin{abstract}
   We present Pyskel, a formalization of Python semantics in Skel.
   We describe a subset of the Python programming language including assignments,
   function calls, object oriented features and exceptions.
   This formalization can be used to automatically derive interpreters and debuggers.
 \end{abstract}
-
-\keywords{semantics \and specification \and programming language \and Python \and
-  OCaml.}
 
 \section{Introduction}\label{sec:introduction}
 
@@ -91,17 +60,17 @@ A formal specification of a programming language is necessary to prove propertie
 Moreover,
 
 We propose a Skel implementation of Raphaël Monat's Python pure semantics\cite{Monat2021},
-as mentionned in \cite{noiset:hal-03784478}
+as mentionned in~\cite{noizet:hal-03784478}.
 
 \section{Fundamental Concepts}\label{sec:skel}
 
 \subsection{Evaluation Monad}\label{sec:skelex}
 A python program is represented in Skel by a data structure very close to the python Abstract Syntax Tree.
-In such a way that we finally have to execute a list of Python statments.
+Evaluating a python program is therefore equivalent to evaluating a list of statements.
 The evaluation takes place in a monad \texttt{m} containing the following context:
 \begin{itemize}
-\item A read-only state, containing the local environment and built-in objects.
-\item A read-write state, containing the heap and the scopes
+\item A read-only state, containing the local environment and built-in objects,
+\item A read-write state, containing the heap and the scopes,
 \item The runtime state: either \texttt{Cur} for a successful computation, or \texttt{Flag}:
   for control flow operations, such as \texttt{Return}, \texttt{Break}, \texttt{Continue}, or \texttt{Exception}.
 \end{itemize}
@@ -114,8 +83,6 @@ Secondly, code can be written in an imperative style.
 
 
 \subsection{Evaluation}
-
-
 \section{Scopes Management}
 Scopes are not handled in Monat's thesis, we present an extension of the semantics allowing mutiple scopes in Pyskel.
 In the semantics, there is a unique environment \(\mathcal E \overset{\text{def}}{=} \mathsf{Id} \rightharpoonup \mathsf{Addr} \cup \mathtt{LocalUndef}\).
@@ -147,17 +114,8 @@ The global state of the interpreter contains a \emph{scope heap} and an \emph{en
   \caption{\texttt{env} type}
 \end{figure}
 
-\newpage
-\bibliographystyle{plainurl}% the mandatory bibstyle
-\bibliography{paper}
-
-\appendix
-\newpage
-
+\section{Bibliography}
+  \nocite{*}
+  \bibliographystyle{eptcs}
+  \bibliography{paper}
 \end{document}
-
-%%% Local Variables:
-%%% mode: latex
-%%% TeX-master: t
-%%% TeX-command-extra-options: "-shell-escape"
-%%% End:

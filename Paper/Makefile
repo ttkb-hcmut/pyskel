@@ -1,11 +1,10 @@
-all: paper.pdf
+.PHONY: clean all dist
 
-%.pdf: %.tex %.bib
-	pdflatex -shell-escape $*
-	pdflatex -shell-escape $*
-	bibtex $*
-	pdflatex -shell-escape $*
+all:
+	latexmk -pdf -shell-escape paper.tex
 
 clean:
-	@rm -f paper.pdf *.{aux,log,bbl,out,blg,vtc}
-	@rm -rf _minted-*
+	latexmk -C
+
+dist: clean
+	zip eptcsstyle.zip paper.bib eptcs.cls *.bst paper.tex

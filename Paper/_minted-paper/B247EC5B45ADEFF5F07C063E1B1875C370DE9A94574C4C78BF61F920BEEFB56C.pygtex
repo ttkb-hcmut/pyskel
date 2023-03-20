@@ -1,0 +1,6 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k+kt}{type} env \PYG{o}{=}
+\PYG{o}{|} \PYG{n+nc}{Globl}
+\PYG{o}{|} \PYG{n+nc}{InFun} \PYG{o}{(}map\PYG{o}{\PYGZlt{}}var\PYGZus{}scope\PYG{o}{\PYGZgt{},} scope\PYGZus{}id\PYG{o}{)}
+\PYG{o}{|} \PYG{n+nc}{InClass} \PYG{o}{(}map\PYG{o}{\PYGZlt{}}var\PYGZus{}scope\PYG{o}{\PYGZgt{},} scope\PYGZus{}id\PYG{o}{)}
+\end{Verbatim}
