@@ -60,8 +60,14 @@ let _ =
 
   let prelude = open_in "prelude.py" in
   let contents = really_input_string prelude (in_channel_length prelude) in
-  let (builtins, (_, heap)) = Utils.eval_file contents in
+
+  let (builtins, (result, heap)) = Utils.eval_file contents in
   close_in prelude;
+  begin
+    match result with
+    | Utils.InterInst.Interpreter.Cur _ -> ()
+    | _ -> failwith "Evaluation of prelude failed !"
+  end;
 
   let subdirs = Sys.readdir "." in
   Array.iter (test_dir (builtins, heap)) subdirs

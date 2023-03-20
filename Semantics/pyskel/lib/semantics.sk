@@ -26,14 +26,16 @@ type stmt =
   | SPass
   | SReturn expr
   | SRaise expr
-  | STry (list<stmt>, exn_handler)
-  | SFunctionDef (id, list<id>, list<stmt>)
+  | STry (body, exn_handler)
+  | SFunctionDef (id, list<id>, body)
   (*         name,       args,           kwargs,       body *)
-  | SClassDef (id, list<expr>, list<(id, expr)>, list<stmt>)
+  | SClassDef (id, list<expr>, list<(id, expr)>, body)
   | SNonlocal id
   | SGlobal id
 
-type exn_handler = (expr, list<stmt>)
+type body = list<stmt>
+
+type exn_handler = (expr, body)
 
 type constant =
   | CNone
@@ -47,6 +49,11 @@ type expr =
   | Call (expr, list<expr>)
   | Attribute (expr, id)
   | Addr addr
+  | InternalToken internal
+
+type internal
+
+val call_internal : (internal, list<addr>) -> m<addr>
 
 (* Python object *)
 (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.65 *)
@@ -59,10 +66,11 @@ type objN =
   | List list<addr>
   | Tuple list<addr>
   (* Fun (name, args, locals, body) *)
-  | Fun (id, list<id>, list<id>, list<stmt>, maybe<scope_id>)
+  | Fun (id, list<id>, list<id>, body, maybe<scope_id>)
   | Method (addr, addr)
   | Class (id, list<addr>, id, map<addr>)
   | Inst addr
+  | Internal internal
 
 type objS =
   | Locked
@@ -102,6 +110,7 @@ val _Exception : id
 val _NameError : id
 val _UnboundLocalError : id
 val _TypeError : id
+val _int : id
 
 (** Global state of the interpreter **)
 type var_scope =
@@ -419,7 +428,7 @@ val readEnv (id:id) : m<addr> =
     let scope_var = map_lookup<var_scope> (id, e) in
     match scope_var with
     | Nothing ->
-        let ma =@ find_nonlocal (id, scope_id) in
+        let ma =@ find_local (id, scope_id) in
         match ma with
         | Nothing -> find_global id
         | Just (Just a) -> ret a
@@ -490,7 +499,7 @@ val deleteEnv (id: id) : m<()> =
   put s'
 
 (* Semantics related functions *)
-val locals (ss: list<stmt>) : list<id> =
+val locals (ss: body) : list<id> =
   match ss with
   | Nil -> Nil<id>
   | Cons(SAssign(x, _), ss') ->
@@ -502,7 +511,7 @@ val locals (ss: list<stmt>) : list<id> =
   | Cons(_, ss') -> locals ss'
   end
 
-val nonlocals (ss: list<stmt>) : list<id> =
+val nonlocals (ss: body) : list<id> =
   match ss with
   | Nil -> Nil<id>
   | Cons(SNonlocal x, ss') ->
@@ -511,7 +520,7 @@ val nonlocals (ss: list<stmt>) : list<id> =
   | Cons(_, ss') -> nonlocals ss'
   end
 
-val globals (ss: list<stmt>) : list<id> =
+val globals (ss: body) : list<id> =
   match ss with
   | Nil -> Nil<id>
   | Cons(SGlobal x, ss') ->
@@ -520,7 +529,7 @@ val globals (ss: list<stmt>) : list<id> =
   | Cons(_, ss') -> nonlocals ss'
   end
 
-val declarations' (ss: list<stmt>): m<map<addr>> =
+val declarations' (ss: body): m<map<addr>> =
   let sid =@ tscoped ss in
   let a_scope =@ readScope sid in
   match a_scope with
@@ -532,7 +541,7 @@ val declarations' (ss: list<stmt>): m<map<addr>> =
 
 
 (* Run code in a fresh total scope *)
-val tscoped (body: list<stmt>): m<scope_id> =
+val tscoped (body: body): m<scope_id> =
   let empty_scope =@ createTotalScopeHere map_empty<addr> in
   let sid =@ allocScope (TotalScope empty_scope) in
 
@@ -553,7 +562,7 @@ val tscoped (body: list<stmt>): m<scope_id> =
   local<()> (in_scope, eval_body) ;@
   return<scope_id> sid
 
-val eval_fun_call ((at_args: list<addr>), (a: list<id>), (loc: list<id>), (body: list<stmt>), (scope_up: maybe<scope_id>)): m<addr> =
+val eval_fun_call ((at_args: list<addr>), (a: list<id>), (loc: list<id>), (body: body), (scope_up: maybe<scope_id>)): m<addr> =
   let r =@ ask in
   (* Eval and set the arguments *)
   let args_with_values = zip<id, addr> (a, at_args) in
@@ -612,7 +621,7 @@ val raise_exn<a> (exn : id) : m<a> =
   let at_exn =@ readEnv exn in
   raise<a> at_exn
 
-val eval_stmts (ss: list<stmt>) : m<()> =
+val eval_stmts (ss: body) : m<()> =
   mapM<stmt, ()> (eval_stmt, ss) ;@
   return<()> ()
 
@@ -652,7 +661,6 @@ val eval_stmt (s: stmt) : m<()> =
     let at_exn =@ eval_expr e in
     raise<()> at_exn
   | STry (tbody, (exn, texc)) ->
-    let _ = debug () in
     let flag =? eval_stmts tbody in
     match flag with
     | Exn raised ->
@@ -831,6 +839,12 @@ val get_attribute ((at_e: addr), (attr: id)) : m<addr> =
       | Just a -> ret a
       end
     end
+  | Int _ ->
+    let class_int =@ readEnv _int in
+    let attr =@ get_attribute (class_int, attr) in
+    let meth = Method (at_e, attr) in
+    let at_meth =@ alloc (meth, Locked) in
+    ret at_meth
   | _ -> setFlag<addr> (Exn todoError)
 end
 
@@ -845,11 +859,17 @@ val eval_call ((at_c: addr), (args: list<expr>)): m<addr> =
      eval_class_call (at_args, at_c, dict)
   | Method(self, fun) ->
     eval_call (fun, Cons<expr> (Addr self, args))
+  | Internal internal ->
+    let at_args =@ mapM<expr, addr> (eval_expr, args) in
+    call_internal (internal, at_args)
   | _ -> setFlag<addr> (Exn todoError)
   end
 
 val eval_expr (e: expr): m<addr> =
   match e with
+  | InternalToken token ->
+    alloc (Internal token, Locked)
+
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.70 *)
   | Constant constant -> eval_constant constant
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.71 *)

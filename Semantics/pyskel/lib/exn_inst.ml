@@ -9,4 +9,6 @@ module Spec (M:MONAD) = struct
   let _NameError = "NameError"
   let _UnboundLocalError = "NameError"
   let _TypeError = "TypeError"
+
+  let _int = "int"
 end

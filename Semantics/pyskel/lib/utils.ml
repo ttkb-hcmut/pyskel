@@ -8,7 +8,10 @@ module Inst(M:MONAD) = struct
     include Heap_inst.TYPE
     include Map_inst.TYPE
     include Exn_inst.TYPE
+
+    type internal = IntAdd
   end = Types
+
 
   module Spec = struct
     include Semantics.Unspec(M)(Types)
@@ -17,6 +20,23 @@ module Inst(M:MONAD) = struct
     include Map_inst.Spec(M)
     include Heap_inst.Spec(M)
     include Exn_inst.Spec(M)
+
+    let call_internal (op, args) = M.ret @@
+      fun (r, s) ->
+      match op with
+      | Types.IntAdd ->
+        match args with
+        | Cons (op1, (Cons (op2, Nil))) ->
+          let (let*) = M.bind in
+          let* ((at1, _), heap) = heapRead (s.heap, op1) in
+          let* ((at2, _), heap) = heapRead (heap, op2) in begin
+            match at1, at2 with
+            |Int left, Int right ->
+              let* (result, heap) = heapAlloc (heap, (Int (left + right), Locked)) in
+              M.ret (Cur result, {s with heap})
+            | _ -> failwith "Wrong type of arguments"
+          end
+        | _ -> failwith "Wrong number of arguments"
   end
 
   module Interpreter = Semantics.MakeInterpreter(Spec)
@@ -54,6 +74,13 @@ let rec translate_expr (e: Concrete.Expression.t) : expr =
     Call(translate_expr f, to_pyskel_list @@ Stdlib.List.map translate_expr args)
   | Concrete.Expression.Attribute { value; attr; _} ->
     Attribute (translate_expr value, Concrete.Identifier.to_string attr)
+
+  | Concrete.Expression.BinOp {left; op; right; _} -> begin
+      match op with
+      | Concrete.BinaryOperator.Add ->
+        Call(Attribute(translate_expr left, "__add__"), to_pyskel_list [translate_expr right])
+      | _ -> failwith "BinOp not specified yet"
+    end
   | _ -> failwith "Expression not specified yet"
 
 let translate_argument ({identifier = id; _} : Concrete.Argument.t)
@@ -87,6 +114,18 @@ let rec translate_stmt (s : Concrete.Statement.t) : stmt =
   | Concrete.Statement.Pass _ -> SPass
   | Concrete.Statement.Return {value = Some e; _} ->
     SReturn (translate_expr e)
+  | Concrete.Statement.FunctionDef {
+      decorator_list = [
+        Concrete.Expression.Call {
+          func = Concrete.Expression.Name {id = s; _};
+          args = [Concrete.Expression.Constant {
+              value = Concrete.Constant.String constructorName; _}]; _
+        }
+      ]; name = name; _
+    } when Concrete.Identifier.to_string s = "pyskel_internal" ->
+    SAssign (Concrete.Identifier.to_string name, InternalToken IntAdd)
+
+
   | Concrete.Statement.FunctionDef {
       name = name;
       args = args;
@@ -133,9 +172,9 @@ module IMap = Map.Make(Int)
 
 let rec show_dict (heap: (objN * objS) IMap.t) (dict: addr SMap.t) =
   "{" ^ (Stdlib.String.concat ", "
-      @@ Stdlib.List.map (fun (key, value) ->
-           Printf.sprintf "%s = %s" key (show_objn heap @@ fst @@ IMap.find value heap))
-      @@ SMap.bindings dict) ^ "}"
+         @@ Stdlib.List.map (fun (key, value) ->
+             Printf.sprintf "%s = %s" key (show_objn heap @@ fst @@ IMap.find value heap))
+         @@ SMap.bindings dict) ^ "}"
 and show_objn (heap: (objN * objS) IMap.t) (x: objN) =
   match x with
   | Bool True -> "True"
@@ -143,7 +182,7 @@ and show_objn (heap: (objN * objS) IMap.t) (x: objN) =
   | None -> "None"
   | NotImplemented -> "NotImplemented"
   | Int n ->
-     Printf.sprintf "%d" n;
+    Printf.sprintf "%d" n;
   | String s -> Printf.sprintf "\"%s\"" s
   | Fun(name, args, locals, _body, _scope_up) ->
     Printf.sprintf "<function %s(%s) with locals = (%s)>"
@@ -182,7 +221,7 @@ let eval_file_with_prelude builtins heap contents =
   (* Parse program *)
   let a = Parser.with_context (fun context ->
       Parser.Concrete.parse_module ~context contents
-  ) in
+    ) in
 
   (* Check for parse error *)
   Result.iter_error
