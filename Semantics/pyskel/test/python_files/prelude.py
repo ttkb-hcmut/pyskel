@@ -17,5 +17,3 @@ class int(object):
     @pyskel_internal("IntAdd")
     def __add__(self, other):
         pass
-
-    show = __add__

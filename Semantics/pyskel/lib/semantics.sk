@@ -143,11 +143,14 @@ val find_local ((id: id), (sid: scope_id)) : m<maybe<maybe<addr>>> =
   let a_scope =@ readScope sid in
   match a_scope with
   | PartialScope scope ->
-      let res = (map_lookup<maybe<addr>> (id, scope.pmapping)) in
-      return<maybe<maybe<addr>>> res
+    let res = map_lookup<maybe<addr>> (id, scope.pmapping) in
+    return<maybe<maybe<addr>>> res
   | TotalScope scope ->
-      let res = (map_lookup<addr> (id, scope.tmapping)) in
-      return<maybe<maybe<addr>>> (Just<maybe<addr>> res)
+    let res = map_lookup<addr> (id, scope.tmapping) in
+    match res with
+	  | Just _ -> return<maybe<maybe<addr>>> (Just<maybe<addr>> res)
+	  | Nothing -> return<maybe<maybe<addr>>> Nothing<maybe<addr>>
+    end
   end
 
 val find_nonlocal' ((id: id), (sid: scope_id)) : m<maybe<maybe<addr>>> =
@@ -416,7 +419,7 @@ val readEnv (id:id) : m<addr> =
         match a with
         | Just a -> ret a
         (* LocalUndef *)
-        | Nothing -> setFlag<addr> (Exn todoError)
+        | Nothing -> raise_exn<addr> _UnboundLocalError
         end
     | Just NonLocal ->
         (* TODO: need to handle exceptions here *)
@@ -431,8 +434,9 @@ val readEnv (id:id) : m<addr> =
         let ma =@ find_local (id, scope_id) in
         match ma with
         | Nothing -> find_global id
+        | Just Nothing -> raise_exn<addr> _NameError
+        (* | Just Nothing -> let _ = debug () in setFlag<addr> (Exn todoError) *)
         | Just (Just a) -> ret a
-        | Just Nothing -> setFlag<addr> (Exn todoError)
         end
     (* Cannot happen, nothing is Local in classes *)
     | Just Local ->
