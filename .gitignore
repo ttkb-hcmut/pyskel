@@ -16,3 +16,8 @@ Semantics/pyskel/test.py
 /Notes/classes/classes.dvi
 /Notes/classes/classes.pdf
 *.synctex.gz
+/Paper/.auctex-auto/
+/Paper/_minted-paper/*.pygtex
+*.aux
+*.out
+*.pag
