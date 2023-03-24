@@ -7,7 +7,9 @@
 \usepackage{hyperref}
 \usepackage{amssymb}
 \usepackage{amsmath}
+\usepackage{tikz}
 \usepackage{iftex}
+\usepackage{varioref}
 
 \ifpdf
 \usepackage{underscore}         % Only needed if you use pdflatex.
@@ -93,14 +95,112 @@ Undefined variables are detected at parsing time and illformed programs are not 
 We expose in this section the main concepts of scope management in Python through a few examples.
 
 First, the \emph{global scope} contains all the toplevel declarations, it is a mapping from varialbe names to heap addresses.
+It contains toplevel variables, such as user-defined functions, and builtin objects.
+
+Functions evaluation requires local memory.
+This local memory corresponds to a fresh scope containing the function parameter and local variables.
+
+The last type of evaluation context is class definitions.
+They behave like function, but without the concept of unbound locals.
 
 \subsubsection{Function body}
-The evaluation of a function requires the creation of a fresh scope, containing the local variables and the function arguments.
-
+By default, each statement of the form \texttt{id = value} will allocate a new variable \texttt{x} in the current scope.
 To modify a global variable from the body of a function, one must use the \texttt{global} keyword.
 By doing so, assignments to some variable \texttt{x} will effectively modify the global \texttt{x} without creating a local variable in the function body.
+To use some variable defined in one of the upper scpoes, but not necesseraly the global one, we use the \texttt{nonlocal} keyword.
+
+To implement the \texttt{global} and \texttt{local} keywords, a function must know the global scope and the scope in wich it was defined.
+We depict this dependency as a tree of scope, as shown in figure \vref{fig:functionscope}.
+
+\begin{figure}[ht!]
+  \begin{minipage}{0.35\textwidth}
+  \begin{minted}{python}
+def wrapper():
+  data = # some data
+  def worker():
+    nonlocal data # mandatory
+    # work
+  return worker()
+
+x = 0
+def incr():
+  global x
+  x = x + 1
+  \end{minted}
+  \end{minipage}
+  \begin{minipage}{0.6\textwidth}
+  \begin{tikzpicture}
+    \node[draw, thick] (GS) at (0, 0) {Global Scope};
+    \node[draw] (Wr) at (2, -2) {\texttt{wrapper}'s scope};
+    \node[draw] (Wo) at (2, -4) {\texttt{worker}'s scope};
+    \node[draw] (F) at (-2, -2) {\texttt{f}'s scope};
+    \node[draw, dashed, right] (GSV) at (4, 0) {\texttt{wrapper}, \texttt{x}, \texttt{incr}};
+    \node[draw, dashed, right] (WrV) at (4, -2) {\texttt{data}, \texttt{worker}};
+    \draw[->, >=stealth, thick] (Wr) to (GS);
+    \draw[->, >=stealth, thick] (Wo) to (Wr);
+    \draw[->, >=stealth, thick] (F) to (GS);
+    \draw[->, >=stealth, densely dashed, thick] (GS) -- (GSV);
+    \draw[->, >=stealth, densely dashed, thick] (Wr) -- (WrV);
+  \end{tikzpicture}
+  \end{minipage}
+  \caption{\label{fig:functionscope}Simple functions and the corresponding scopes}
+\end{figure}
+
+Note that scopes are computed at parsing time: when a function is called, its local variable are allocated but not initialized yet.
+Thus, reading a not yet defined variable in a function definition will result in an \texttt{UnboundLocalError} instead of a classical \texttt{NameError}. This is illustrated figure \vref{fig:unboundlocal}.
+
+\begin{figure}
+  \centering
+  \begin{minipage}{0.5\textwidth}
+  \begin{minted}{python}
+def f():
+  x = undef # will raise NameError
+  x = y     # will raise UnboundLocalError
+  y = 0     # because y is loal to f
+  \end{minted}
+  \end{minipage}
+  \caption{\label{fig:unboundlocal}Example of a program throwing \texttt{UnboundLocalError}}
+\end{figure}
+
+\subsubsection{Classes definition}
+Evaluation of classes definition is very close to function evaluations.
+The main difference is that variables are \emph{not} allocated before evaluation.
 
 \subsection{Scopes in Pyskel}
+In this section, we present how pyskel manages scopes and evaluation contexts.
+
+\subsubsection{Scopes}
+Scopes are mutables and potentially references by more than one object.
+We use a key-value approach to identify scopes,
+
+As we have seen, classes' scopes and functions' scopes differ in their structure, since functions need to allocate undefined values.
+This results in two different scopes type in pyskel:
+\begin{itemize}
+\item total scopes are mapping from identifiers to heap addresses, they are represented by the following type:
+  \begin{minted}{sk.py -x}
+type total_scope = (tscope_up: maybe<scope_id>, tmapping: map<addr>)
+  \end{minted}
+  The definition is straight forward, a total scope is a mapping and some optional scope.
+  the \texttt{tscope\_up} is used to look up nonlocal variables.
+\item partial scopes can accept uninitialized values, we use an option type to represent this property:
+  \begin{minted}{sk.py -x}
+type maybe<a> =
+  | Nothing
+  | Just a
+
+type partial_scope = (pscope_up: maybe<scope_id>, pmapping: map<maybe<addr>>)
+  \end{minted}
+\end{itemize}
+
+Note that scope ids are also useful for the tree structure of the scope. A partial scope can be defined in a total scope and vice versa.
+
+The link betwin scope ids and scopes is done with a map of \texttt{any\_scope}:
+\begin{minted}{sk.py -x}
+type any_scope = | TotalScope total_scope
+                 | PartialScope partial_scope
+\end{minted}
+
+\subsubsection{Contexts}
 The global state of the interpreter contains a \emph{scope heap} and an \emph{environment}.
 \begin{figure}[h]
   \begin{minipage}{0.5\textwidth}
@@ -115,7 +215,7 @@ The global state of the interpreter contains a \emph{scope heap} and an \emph{en
 \end{figure}
 
 \section{Bibliography}
-  \nocite{*}
-  \bibliographystyle{eptcs}
-  \bibliography{paper}
+\nocite{*}
+\bibliographystyle{eptcs}
+\bibliography{paper}
 \end{document}
