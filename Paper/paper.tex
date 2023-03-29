@@ -43,6 +43,9 @@
 \begin{document}
 \maketitle
 
+% Will be removed in the future, just for me
+\tableofcontents
+
 \begin{abstract}
   We present Pyskel, a formalization of Python semantics in Skel.
   We describe a subset of the Python programming language including assignments,
@@ -64,12 +67,121 @@ Moreover,
 We propose a Skel implementation of Raphaël Monat's Python pure semantics\cite{Monat2021},
 as mentionned in~\cite{noizet:hal-03784478}.
 
+\section{Challenges of Python Semantics}
+The python semantics, as described in Monat's thesis, is full of mutable state.
+
+\subsection{Scopes}
+Python does not have a syntax criteria to distinguish between declarations and assignments. Take a look at the programs figure \vref{fig:scopeillustration}:
+\begin{figure}[ht]
+  \centering
+  \begin{minipage}{0.3\textwidth}
+    \begin{minted}{python}
+
+x = 0
+def function():
+
+  x = 1
+  print(x)
+
+function(); print(x)
+    \end{minted}
+  \end{minipage}
+  \begin{minipage}{0.3\textwidth}
+    \begin{minted}{python}
+
+x = 0
+def function():
+  global x
+  x = 1
+  print(x)
+
+function(); print(x)
+    \end{minted}
+  \end{minipage}
+  \begin{minipage}{0.3\textwidth}
+    \begin{minted}{python}
+def wrapper():
+  x = 0
+  def function():
+    nonlocal x
+    x = 1
+    print(x)
+
+  function(); print(x)
+wrapper()
+    \end{minted}
+  \end{minipage}
+  \caption{\label{fig:scopeillustration}Three programs illustrating scopes behavior}
+\end{figure}
+
+The first one will output \texttt{1} and \texttt{0}: by default, assignments are declarations.
+The first code sample contains to variables named \texttt{x}: the global one (equal to zero), and one local to \texttt{function} (equal to one).
+
+To use the global version of \texttt{x} in \texttt{function}, the \texttt{global} keyword must be used.
+This meaning is ``Some variable \texttt{x} is already defined in the global scope, use this one instead of creating a new one''.
+The second program will therefore display \texttt{1} and \texttt{1}.
+
+One trickier case is the third program.
+It is very close to the second one but with one little difference: the entire code is place in a function (called \texttt{wrapper} in the example).
+To use the \texttt{x} variable defined in the \texttt{wrapper} function inside of \texttt{function}, we cannot use the \texttt{global} keyword, because \texttt{x} is not \texttt{global}.
+In this case, the \texttt{nonlocal} keyword is what we need.
+It uses the closest definition of \texttt{x} among the upper scopes.
+Like the second one, it displays two \texttt{1}.
+
+\subsection{Objects and Classes}
+Python values are stored on the heap.
+They can be
+\begin{itemize}
+\item builtin constants: such as integers, strings, booleans, \dots.
+\item Functions or methods
+\item Classes
+\item Intances
+\end{itemize}
+
+A class defines a new \emph{type}, it can be seen as a set of definitions.
+These definitions forms the \emph{fields} of a class.
+Programmers familiar with object-oriented programming know that classes can inherit from each other.
+The set of all the fields of a class and its superclasses forms the \emph{attributes} of this class.
+
+The notion of field is hidden in python, but it is nevertheless necessary to understand the underlying mechanism of classes.
+In the code sample giver figure~\vref{fig:class}, the class \texttt{Example} has three fields: \texttt{value}, \texttt{function} and \texttt{method}.
+From the point of vue of the class, nothing distinguish \texttt{function} and \texttt{method} (except the number of arguments).
+The self parameter is not a keyword, but an identifier like any other.
+
+\begin{figure}[ht]
+  \centering
+  \begin{minipage}{0.25\textwidth}
+    \begin{minted}{python}
+class Example:
+  value = 0
+  def function():
+    return 1
+
+  def method(self):
+    self.x = 2
+    \end{minted}
+  \end{minipage}
+  \caption{\label{fig:class}A class in Pyhton}
+\end{figure}
+
+
+An instance is simply a reference to some class.
+The question is: where is stored the \texttt{x} of \texttt{Example}'s instances?
+Each python object has an additional dictionnary where its dynamic attributes are stored.
+
+
+
+
+\subsection{Internal Functions}
+
+
 \section{Fundamental Concepts}\label{sec:skel}
 
-\subsection{Evaluation Monad}\label{sec:skelex}
-A python program is represented in Skel by a data structure very close to the python Abstract Syntax Tree.
+\subsection{Evaluation Monad and State}\label{sec:monad}
+\subsubsection{Stateful computation}
+A python program is represented in Skel by a data structure very close to the Python Abstract Syntax Tree.
 Evaluating a python program is therefore equivalent to evaluating a list of statements.
-The evaluation takes place in a monad \texttt{m} containing the following context:
+The evaluation takes place in a monad containing the following context:
 \begin{itemize}
 \item A read-only state, containing the local environment and built-in objects,
 \item A read-write state, containing the heap and the scopes,
@@ -83,8 +195,17 @@ First, if a function does not use a part of the state, the relevent part will no
 (while in a more classical approach based on argument passing, functions have to take additional parameters and pass them to other functions without modifying them).
 Secondly, code can be written in an imperative style.
 
+\subsubsection{State}
+To evaluate properly a Python program, we consider the following state.
 
-\subsection{Evaluation}
+\begin{itemize}
+\item A Heap, mapping from addresses to values,
+\item An Environment, containing a scope identifier and a mapping from variable names to either \texttt{Local}, \texttt{Global} or \texttt{NonLocal},
+\item A Scope Heap, which maps scope identifiers to scopes
+\end{itemize}
+
+\subsubsection{}
+
 \section{Scopes Management}
 Scopes are not handled in Monat's thesis, we present an extension of the semantics allowing mutiple scopes in Pyskel.
 In the semantics, there is a unique environment \(\mathcal E \overset{\text{def}}{=} \mathsf{Id} \rightharpoonup \mathsf{Addr} \cup \mathtt{LocalUndef}\).
@@ -156,7 +277,7 @@ Thus, reading a not yet defined variable in a function definition will result in
 def f():
   x = undef # will raise NameError
   x = y     # will raise UnboundLocalError
-  y = 0     # because y is loal to f
+  y = 0     # because y is local to f
   \end{minted}
   \end{minipage}
   \caption{\label{fig:unboundlocal}Example of a program throwing \texttt{UnboundLocalError}}
@@ -174,7 +295,7 @@ Scopes are mutables and potentially references by more than one object.
 We use a key-value approach to identify scopes,
 
 As we have seen, classes' scopes and functions' scopes differ in their structure, since functions need to allocate undefined values.
-This results in two different scopes type in pyskel:
+This results in two different scope types in pyskel:
 \begin{itemize}
 \item total scopes are mapping from identifiers to heap addresses, they are represented by the following type:
   \begin{minted}{sk.py -x}
@@ -200,19 +321,17 @@ type any_scope = | TotalScope total_scope
                  | PartialScope partial_scope
 \end{minted}
 
-\subsubsection{Contexts}
-The global state of the interpreter contains a \emph{scope heap} and an \emph{environment}.
-\begin{figure}[h]
-  \begin{minipage}{0.5\textwidth}
-    \begin{minted}[autogobble]{sk.py -x}
-      type env =
-      | Globl
-      | InFun (map<var_scope>, scope_id)
-      | InClass (map<var_scope>, scope_id)
-    \end{minted}
-  \end{minipage}
-  \caption{\texttt{env} type}
-\end{figure}
+\section{Initial State}
+As explained Section~\ref{sec:monad}, evaluating a python program is a stateful computation.
+Therefore, we need to provide some initial state to the interpreter.
+This state must contain builtin objects, such as the two booleans \texttt{true} and \texttt{false}, but also all the builtin classes.
+
+In python all classes inherits from the \texttt{object} class, and are instances of the class type.
+The initial state is computed in two steps.
+The constants (such as \texttt{None}, \texttt{true} or \texttt{false}) are hardcoded in the semantics.
+The builtin classes (such as \texttt{int}, \texttt{BaseException} or \texttt{object}) are defined in a prelude file.
+
+To evaluate a python program, we must evaluate the prelude first, to collect all of its definitions, and then call the evaluator with the output of the prelude on the program file.
 
 \section{Bibliography}
 \nocite{*}
