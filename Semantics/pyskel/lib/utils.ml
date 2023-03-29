@@ -59,6 +59,10 @@ let rec to_stdlib_list (l : 'a list) : 'a Stdlib.List.t =
   | Nil -> []
   | Cons(h, t) -> h :: (to_stdlib_list t)
 
+let read_token : string -> internal = function
+  | "IntAdd" -> IntAdd
+  | s -> failwith @@ Printf.sprintf "Unknown token %s" s
+
 
 let rec translate_expr (e: Concrete.Expression.t) : expr =
   match e with
@@ -127,8 +131,7 @@ let rec translate_stmt (s : Concrete.Statement.t) : stmt =
         }
       ]; name = name; _
     } when Concrete.Identifier.to_string s = "pyskel_internal" ->
-    (* TODO: Effectively parse the token *)
-    SAssign (Concrete.Identifier.to_string name, InternalToken IntAdd)
+    SAssign (Concrete.Identifier.to_string name, InternalToken (read_token constructorName))
 
 
   | Concrete.Statement.FunctionDef {
