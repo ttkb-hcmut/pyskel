@@ -676,11 +676,11 @@ val eval_stmt (s: stmt) : m<()> =
         let exn_match_handler =@ is_instance_of (raised, at_exn) in
         match exn_match_handler with
         | True -> eval_stmts texc
-        | False -> return<()> ()
+        | False -> raise<()> raised
         end
       | False -> raise_exn<()> _TypeError
       end
-    | _ -> return<()> ()
+    | flag -> setFlag<()> flag
     end
 
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.115 *)

@@ -22,21 +22,25 @@ module Inst(M:MONAD) = struct
     include Exn_inst.Spec(M)
 
     let call_internal (op, args) = M.ret @@
+      let (let*) = M.bind in
       fun (r, s) ->
       match op with
       | Types.IntAdd ->
         match args with
         | Cons (op1, (Cons (op2, Nil))) ->
-          let (let*) = M.bind in
           let* ((at1, _), heap) = heapRead (s.heap, op1) in
           let* ((at2, _), heap) = heapRead (heap, op2) in begin
             match at1, at2 with
             |Int left, Int right ->
               let* (result, heap) = heapAlloc (heap, (Int (left + right), Locked)) in
               M.ret (Cur result, {s with heap})
-            | _ -> failwith "Wrong type of arguments"
+            | _ -> M.ret (Cur r.builtins.notImplemented, {s with heap})
           end
-        | _ -> failwith "Wrong number of arguments"
+        | _ ->
+          let module SMap = Map.Make(String) in
+          let err = SMap.find _TypeError s.global_scope in
+          let* (inst, heap) = heapAlloc (s.heap, (Inst err, Locked)) in
+          M.ret (Flag (Exn inst), {s with heap})
   end
 
   module Interpreter = Semantics.MakeInterpreter(Spec)
@@ -123,6 +127,7 @@ let rec translate_stmt (s : Concrete.Statement.t) : stmt =
         }
       ]; name = name; _
     } when Concrete.Identifier.to_string s = "pyskel_internal" ->
+    (* TODO: Effectively parse the token *)
     SAssign (Concrete.Identifier.to_string name, InternalToken IntAdd)
 
 
