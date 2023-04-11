@@ -67,16 +67,124 @@ Moreover,
 We propose a Skel implementation of Raphaël Monat's Python pure semantics\cite{Monat2021},
 as mentionned in~\cite{noizet:hal-03784478}.
 
-\section{Challenges of Python Semantics}
-The python semantics, as described in Monat's thesis, is full of mutable state.
+\section{Monadic skeletal semantics}
+The semantics desbribed in the paper is written in the Skel language.
 
-\subsection{Scopes}
+A skeletal semantics can be seen as an interpreter, were some functions and types are left unspecified.
+This allows to express the semantics independently of the implementation choices.
+
+\subsection{A simple skeletal semantics}
+Consider the Python statement \texttt{x = \(e\)}.
+To provide the semantics of this statement, we write a Skel function \texttt{eval\_statement}, which accept a statement as argument.
+A first version of this function is represented figure~\vref{fig:simpleskel}.
+
+\begin{figure}[ht!]
+\centering
+\begin{minipage}{0.8\textwidth}
+\begin{minted}{ocaml}
+type addr, heap, env
+type expression
+type statement = | SAssign (id, expression)
+
+val eval_expression : (heap, env, expression) -> addr
+val write_env : (env, id, addr) -> env
+
+val eval_statement (heap, env, stmt) =
+  match stmt with
+  | SAssign (id, expr) =
+      let (heap, env, addr) = eval_expression (heap, env, expr) in
+      let env = write_env (env, id, addr) in
+      (heap, env, ())
+\end{minted}
+\end{minipage}
+\caption{\label{fig:simpleskel}A simple skeletal semantics}
+\end{figure}
+
+
+This code deserves further explanation:
+This semantics contains a function \texttt{eval\_statment}, this function is our interpreter.
+It takes a statement and modify the state accordingly.
+
+The state is, for now, a heap and an environment.
+When a python expressions is computed (through \texttt{eval\_expression}), we get an heap adress.
+The actual Skel representation of the result is stored inside the heap.
+The environment is a map from identifiers to values.
+
+This code is unnecessarily cumbersome.
+The interpretor state is made explicit at each function call, and modifications are handle but the code writer.
+We present in the next part a monadic version of the semantics, more adapted to our needs.
+
+\subsection{Monadic style}
+By using a monadic style, we can hide the state to functions which don't need it.
+It also make the code closer to an imperative language.
+
+Here is the monad we use in our semantics:
+\begin{figure}
+\centering
+\begin{minipage}{0.6\textwidth}
+\begin{minted}{ocaml}
+type flag =
+  | Ret addr
+  | Brk
+  | Cont
+  | Exn addr
+type exn<a> =
+  | Cur a
+  | Flag flag
+
+type s = ( global_scope: global_scope
+         , heap: pythonHeap
+         , scope_heap: scope_heap
+         )
+type r = ( local_env: env
+         , builtins: builtins
+         )
+
+type m<a> = (r, s) -> (exn<a>, s)
+
+val return<a> (v : a) : m<a> =
+  \(_, s):(r, s) -> (Cur<a> v, s)
+
+val bind<a, b> ((w: m<a>), (f: a -> m<b>)) : m<b> =
+  \(r, s):(r, s) ->
+    let (v, s') = w (r, s) in
+    match v with
+    | Cur a ->
+      let fa = f a in
+      fa (r, s')
+    | Flag f ->
+      (Flag<b> f, s')
+    end
+\end{minted}
+\end{minipage}
+\caption{\label{fig:skelmonad}The \texttt{m} monad}
+\end{figure}
+
+The two types \texttt{r} and \texttt{s} represent the read-only and read-write state of the interpreter.
+The \texttt{exn} is used for control flow operations, such as \texttt{return} statement handling or exceptions.
+
+This results in the following Skel code, with type annotations:
+\begin{figure}[ht!]
+\centering
+\begin{minipage}{0.5\textwidth}
+\begin{minted}{ocaml}
+val eval_statement (s: stmt) : m<()> =
+  match s with
+  | SAssign (x, v) ->
+    let addr =@ eval_expr v in
+    write_env (x, addr)
+\end{minted}
+\end{minipage}
+\end{figure}
+
+\subsection{Specificities of Python Semantics}
+
+\section{Scopes}
 Python does not have a syntax criteria to distinguish between declarations and assignments. Take a look at the programs figure \vref{fig:scopeillustration}:
 \begin{figure}[ht]
   \centering
   \begin{minipage}{0.3\textwidth}
     \begin{minted}{python}
-
 x = 0
 def function():
 
@@ -128,85 +236,7 @@ In this case, the \texttt{nonlocal} keyword is what we need.
 It uses the closest definition of \texttt{x} among the upper scopes.
 Like the second one, it displays two \texttt{1}.
 
-\subsection{Objects and Classes}
-Python values are stored on the heap.
-They can be
-\begin{itemize}
-\item builtin constants: such as integers, strings, booleans, \dots.
-\item Functions or methods
-\item Classes
-\item Intances
-\end{itemize}
-
-A class defines a new \emph{type}, it can be seen as a set of definitions.
-These definitions forms the \emph{fields} of a class.
-Programmers familiar with object-oriented programming know that classes can inherit from each other.
-The set of all the fields of a class and its superclasses forms the \emph{attributes} of this class.
-
-The notion of field is hidden in python, but it is nevertheless necessary to understand the underlying mechanism of classes.
-In the code sample giver figure~\vref{fig:class}, the class \texttt{Example} has three fields: \texttt{value}, \texttt{function} and \texttt{method}.
-From the point of vue of the class, nothing distinguish \texttt{function} and \texttt{method} (except the number of arguments).
-The self parameter is not a keyword, but an identifier like any other.
-
-\begin{figure}[ht]
-  \centering
-  \begin{minipage}{0.25\textwidth}
-    \begin{minted}{python}
-class Example:
-  value = 0
-  def function():
-    return 1
-
-  def method(self):
-    self.x = 2
-    \end{minted}
-  \end{minipage}
-  \caption{\label{fig:class}A class in Pyhton}
-\end{figure}
-
-
-An instance is simply a reference to some class.
-The question is: where is stored the \texttt{x} of \texttt{Example}'s instances?
-Each python object has an additional dictionnary where its dynamic attributes are stored.
-
-
-
-
-\subsection{Internal Functions}
-
-
-\section{Fundamental Concepts}\label{sec:skel}
-
-\subsection{Evaluation Monad and State}\label{sec:monad}
-\subsubsection{Stateful computation}
-A python program is represented in Skel by a data structure very close to the Python Abstract Syntax Tree.
-Evaluating a python program is therefore equivalent to evaluating a list of statements.
-The evaluation takes place in a monad containing the following context:
-\begin{itemize}
-\item A read-only state, containing the local environment and built-in objects,
-\item A read-write state, containing the heap and the scopes,
-\item The runtime state: either \texttt{Cur} for a successful computation, or \texttt{Flag}:
-  for control flow operations, such as \texttt{Return}, \texttt{Break}, \texttt{Continue}, or \texttt{Exception}.
-\end{itemize}
-The manipulation of this information is detailed in the following sections.
-
-Writting the evaluator in the monad makes code simpler to understand for multiple reasons.
-First, if a function does not use a part of the state, the relevent part will not be visible at all in the function definition
-(while in a more classical approach based on argument passing, functions have to take additional parameters and pass them to other functions without modifying them).
-Secondly, code can be written in an imperative style.
-
-\subsubsection{State}
-To evaluate properly a Python program, we consider the following state.
-
-\begin{itemize}
-\item A Heap, mapping from addresses to values,
-\item An Environment, containing a scope identifier and a mapping from variable names to either \texttt{Local}, \texttt{Global} or \texttt{NonLocal},
-\item A Scope Heap, which maps scope identifiers to scopes
-\end{itemize}
-
-\subsubsection{}
-
-\section{Scopes Management}
+\subsection{Scopes Management}
 Scopes are not handled in Monat's thesis, we present an extension of the semantics allowing mutiple scopes in Pyskel.
 In the semantics, there is a unique environment \(\mathcal E \overset{\text{def}}{=} \mathsf{Id} \rightharpoonup \mathsf{Addr} \cup \mathtt{LocalUndef}\).
 The keywords \texttt{global} and \texttt{nonlocal} are not supported.
@@ -298,13 +328,13 @@ As we have seen, classes' scopes and functions' scopes differ in their structure
 This results in two different scope types in pyskel:
 \begin{itemize}
 \item total scopes are mapping from identifiers to heap addresses, they are represented by the following type:
-  \begin{minted}{sk.py -x}
+  \begin{minted}{python}
 type total_scope = (tscope_up: maybe<scope_id>, tmapping: map<addr>)
   \end{minted}
   The definition is straight forward, a total scope is a mapping and some optional scope.
   the \texttt{tscope\_up} is used to look up nonlocal variables.
 \item partial scopes can accept uninitialized values, we use an option type to represent this property:
-  \begin{minted}{sk.py -x}
+  \begin{minted}{python}
 type maybe<a> =
   | Nothing
   | Just a
@@ -316,10 +346,55 @@ type partial_scope = (pscope_up: maybe<scope_id>, pmapping: map<maybe<addr>>)
 Note that scope ids are also useful for the tree structure of the scope. A partial scope can be defined in a total scope and vice versa.
 
 The link betwin scope ids and scopes is done with a map of \texttt{any\_scope}:
-\begin{minted}{sk.py -x}
+\begin{minted}{python}
 type any_scope = | TotalScope total_scope
                  | PartialScope partial_scope
 \end{minted}
+
+
+\section{Objects and Classes}
+Python values are stored on the heap.
+They can be
+\begin{itemize}
+\item builtin constants: such as integers, strings, booleans, \dots.
+\item Functions or methods
+\item Classes
+\item Intances
+\end{itemize}
+
+A class defines a new \emph{type}, it can be seen as a set of definitions.
+These definitions forms the \emph{fields} of a class.
+Programmers familiar with object-oriented programming know that classes can inherit from each other.
+The set of all the fields of a class and its superclasses forms the \emph{attributes} of this class.
+
+The notion of field is hidden in python, but it is nevertheless necessary to understand the underlying mechanism of classes.
+In the code sample giver figure~\vref{fig:class}, the class \texttt{Example} has three fields: \texttt{value}, \texttt{function} and \texttt{method}.
+From the point of vue of the class, nothing distinguish \texttt{function} and \texttt{method} (except the number of arguments).
+The self parameter is not a keyword, but an identifier like any other.
+
+\begin{figure}[ht]
+  \centering
+  \begin{minipage}{0.25\textwidth}
+    \begin{minted}{python}
+class Example:
+  value = 0
+  def function():
+    return 1
+
+  def method(self):
+    self.x = 2
+    \end{minted}
+  \end{minipage}
+  \caption{\label{fig:class}A class in Pyhton}
+\end{figure}
+
+
+An instance is simply a reference to some class.
+The question is: where is stored the \texttt{x} of \texttt{Example}'s instances?
+Each python object has an additional dictionnary where its dynamic attributes are stored.
+
+\section{Internal Functions}
+
 
 \section{Initial State}
 As explained Section~\ref{sec:monad}, evaluating a python program is a stateful computation.
@@ -332,6 +407,13 @@ The constants (such as \texttt{None}, \texttt{true} or \texttt{false}) are hardc
 The builtin classes (such as \texttt{int}, \texttt{BaseException} or \texttt{object}) are defined in a prelude file.
 
 To evaluate a python program, we must evaluate the prelude first, to collect all of its definitions, and then call the evaluator with the output of the prelude on the program file.
+
+\section{Technical details}
+The Skel semantics can be used to derived debuggers and interpreters.
+
+The pyskel library export a python interpreter.
+The parsing is
+
 
 \section{Bibliography}
 \nocite{*}
