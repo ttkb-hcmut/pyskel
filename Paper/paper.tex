@@ -96,20 +96,17 @@ but it lacks an official and clear specification, the
 \href{https://docs.python.org/3/reference/}{\emph{Python Language Reference}} and
 \href{https://docs.python.org/3/library/}{\emph{Python Standard Library}}
 begin the closest things to it.
-
 A formal specification of a programming language is necessary to prove properties on programs.
-Moreover,
-
 We propose a Skel implementation of Raphaël Monat's Python pure semantics\cite{Monat2021},
 as mentionned in~\cite{noizet:hal-03784478}.
 
-\section{Monadic skeletal semantics}
+\section{Monadic Skeletal Semantics}
 The semantics desbribed in the paper is written in the Skel language.
 
 A skeletal semantics can be seen as an interpreter, were some functions and types are left unspecified.
 This allows to express the semantics independently of the implementation choices.
 
-\subsection{A simple skeletal semantics}
+\subsection{A Simple Skeletal Semantics}
 Consider the Python statement \texttt{x = \(e\)}.
 To provide the semantics of this statement, we write a Skel function \texttt{eval\_statement}, which accept a statement as argument.
 A first version of this function is represented figure~\vref{fig:simpleskel}.
@@ -138,26 +135,24 @@ val eval_statement (heap, env, stmt) =
 
 
 This code deserves further explanation:
-This semantics contains a function \texttt{eval\_statment}, this function is our interpreter.
-It takes a statement and modify the state accordingly.
+This semantics contains a function \texttt{eval\_statment}, which takes a statement and modify the state accordingly, hence the similarity to an interpreter.
 Note that exception handling is not represented here.
 The actual code would be even more complex, involving sum types and pattern matching at each function call.
 
 The state is, for now, a heap and an environment.
-When a python expressions is computed (through \texttt{eval\_expression}), we get an heap address.
+When a Python expressions is computed (through \texttt{eval\_expression}), we get an heap address.
 The actual Skel representation of the result is stored inside the heap.
-The environment is a map from identifiers to values.
+The environment is a map from identifiers to addresses.
 
 This code is unnecessarily cumbersome.
-The interpretor state is made explicit at each function call, and modifications are handle but the code writer.
+The interpretor state is made explicit at each function call, and modifications are handled by the code writer.
 We present in the next part a monadic version of the semantics, more adapted to our needs.
 
-\subsection{Monadic style}
+\subsection{Monadic Style}
 By using a monadic style, we can hide the state to functions which don't need it.
 It also make the code closer to an imperative language.
 
-Here is the monad we use in our semantics:
-\begin{figure}
+\begin{figure}[ht!]
 \centering
 \begin{minipage}{0.6\textwidth}
 \begin{minted}[custom lexer=true]{sk.py}
@@ -192,13 +187,14 @@ val bind<a, b> ((w: m<a>), (f: a -> m<b>)) : m<b> =
     end
 \end{minted}
 \end{minipage}
-\caption{\label{fig:skelmonad}The \texttt{m} monad}
+\caption{\label{fig:skelmonad}The \texttt{m} Monad}
 \end{figure}
 
+The monad we use in our semantics is given Figure~\vref{fig:skelmonad}.
 The two types \texttt{r} and \texttt{s} represent the read-only and read-write state of the interpreter.
 The \texttt{exn} is used for control flow operations, such as \texttt{return} statement handling or exceptions.
 
-This results in the following Skel code, with type annotations:
+This results in the Skel code given Figure~\vref{fig:monadiceval}.
 \begin{figure}[ht!]
 \centering
 \begin{minipage}{0.5\textwidth}
@@ -210,13 +206,23 @@ val eval_statement (s: stmt) : m<()> =
     write_env (x, addr)
 \end{minted}
 \end{minipage}
+\caption{\label{fig:monadiceval}Monadic Skeletal Semantics}
 \end{figure}
 
 \subsection{Specificities of Python Semantics}
+The semantics of Python are quite classical, but some points deserve special attention, in particular:
+% TODO: explain why it is non-trivial
+% TODO: don't like lists
+\begin{itemize}
+\item The management of scopes and captures
+\item The management of the object oriented
+\item Internal functions
+\end{itemize}
 
 \section{Scopes}
-We describe in this section the main concepts of scopes management in Pyhton and their implementation in the skeletal semantics.
+We describe in this section the main concepts of scopes management in Python and their implementation in the skeletal semantics.
 We will focus on functions, classes' scopes have a few differences which will be explained in the corresponding section.
+% TODO: cite section
 
 \subsection{Scopes in Python}
 Python does not have a syntax criteria to distinguish between declarations and assignments. Consider the programs Figure \vref{fig:scopeillustration}:
@@ -269,7 +275,7 @@ This meaning is ``Some variable \texttt{x} is already defined in the global scop
 The second program will therefore display \texttt{1} and \texttt{1}.
 
 One trickier case is the third program.
-It is very close to the second one but with one little difference: the entire code is place in a function (called \texttt{wrapper} in the example).
+It is very close to the second one but with one little difference: the entire code is placed in a function (called \texttt{wrapper} in the example).
 To use the \texttt{x} variable defined in the \texttt{wrapper} function inside of \texttt{function}, we cannot use the \texttt{global} keyword, because \texttt{x} is not \texttt{global}.
 In this case, the \texttt{nonlocal} keyword is what we need.
 It uses the closest definition of \texttt{x} among the upper scopes.
@@ -287,7 +293,7 @@ The local variables of a function and its parameters are stored in the scope ass
 
 
 Functions may need to access upper scopes, especially in case of reads to non local variables.
-We depict this dependency as a tree of scope, as shown in figure \vref{fig:functionscope}.
+We depict this dependency as a tree of scope, as shown in figure~\vref{fig:functionscope}.
 
 \begin{figure}[ht!]
   \begin{minipage}{0.35\textwidth}
@@ -324,7 +330,7 @@ def incr():
 \end{figure}
 
 Note that scopes are computed at parsing time: when a function is called, its local variable are allocated but not initialized yet.
-Thus, reading a not yet defined variable in a function definition will result in an \texttt{UnboundLocalError} instead of a classical \texttt{NameError}. This is illustrated figure \vref{fig:unboundlocal}.
+Thus, reading a not yet defined variable in a function definition will result in an \texttt{UnboundLocalError} instead of a classical \texttt{NameError}. This is illustrated figure~\vref{fig:unboundlocal}.
 
 \begin{figure}[ht!]
   \centering
@@ -350,7 +356,7 @@ As it is possible to have multiple references to the same scope, we use a key-va
 type total_scope = (tscope_up: maybe<scope_id>, tmapping: map<addr>)
   \end{minted}
   The definition is straight forward, a total scope is a mapping and some optional scope.
-  the \texttt{tscope\_up} is used to look up nonlocal variables.
+  The \texttt{tscope\_up} is used to look up nonlocal variables.
 \item[Partial scopes] can accept uninitialized values, we use an option type to represent this property:
   \begin{minted}{python}
 type maybe<a> =
@@ -402,7 +408,7 @@ class Example:
     self.x = value
     \end{minted}
   \end{minipage}
-  \caption{\label{fig:class}A class in Pyhton}
+  \caption{\label{fig:class}A Class in Python}
 \end{figure}
 
 
@@ -451,7 +457,7 @@ The evaluation of a Python program requires some initial state.
 This state must contains builtin object, functions that operates on this object and classes to organize the functions properly.
 This elements can be defined in multiple places:
 \begin{itemize}
-\item In the skel semantics, \texttt{True} and \texttt{False} are two example
+\item In the skel semantics, \texttt{True} and \texttt{False} are two examples.
 \item In the OCaml implementation, if the term is let unspecified in the semantics.
   This is the case for integer addtition, since intergers are not specified.
 \item In a prelude Python file, which contains the builtin classes.
@@ -491,14 +497,14 @@ This elements can be defined in multiple places:
 \end{figure}
 
 
-\section{Deriving a python interpreter}
+\section{Deriving a Python interpreter}
 The Skel semantics can be used to derived debuggers and interpreters.
 
 \section{Conclusion and future works}
-We presented a formalization of Python semantics in Skel, and used this semantics to derive a python interpreter.
+We presented a formalization of Python semantics in Skel, and used this semantics to derive a Python interpreter.
 This work has led to the improvement of the necro ecosystem, necrodebug in particular.
 
-Some points in the python semantics are not covered by pyskel yet, such as generators, a large part of the standard library.
+Some points in the Python semantics are not covered by pyskel yet, such as generators, a large part of the standard library.
 
 \nocite{*}
 \bibliographystyle{eptcs}
