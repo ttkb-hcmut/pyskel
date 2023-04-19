@@ -140,9 +140,11 @@ val eval_statement (heap, env, stmt) =
 This code deserves further explanation:
 This semantics contains a function \texttt{eval\_statment}, this function is our interpreter.
 It takes a statement and modify the state accordingly.
+Note that exception handling is not represented here.
+The actual code would be even more complex, involving sum types and pattern matching at each function call.
 
 The state is, for now, a heap and an environment.
-When a python expressions is computed (through \texttt{eval\_expression}), we get an heap adress.
+When a python expressions is computed (through \texttt{eval\_expression}), we get an heap address.
 The actual Skel representation of the result is stored inside the heap.
 The environment is a map from identifiers to values.
 
@@ -158,7 +160,7 @@ Here is the monad we use in our semantics:
 \begin{figure}
 \centering
 \begin{minipage}{0.6\textwidth}
-\begin{minted}{ocaml}
+\begin{minted}[custom lexer=true]{sk.py}
 type flag =
   | Ret addr
   | Brk
@@ -185,11 +187,8 @@ val bind<a, b> ((w: m<a>), (f: a -> m<b>)) : m<b> =
   \(r, s):(r, s) ->
     let (v, s') = w (r, s) in
     match v with
-    | Cur a ->
-      let fa = f a in
-      fa (r, s')
-    | Flag f ->
-      (Flag<b> f, s')
+    | Cur a -> let fa = f a in fa (r, s')
+    | Flag f -> (Flag<b> f, s')
     end
 \end{minted}
 \end{minipage}
@@ -203,7 +202,7 @@ This results in the following Skel code, with type annotations:
 \begin{figure}[ht!]
 \centering
 \begin{minipage}{0.5\textwidth}
-\begin{minted}{ocaml}
+\begin{minted}[custom lexer=true]{sk.py}
 val eval_statement (s: stmt) : m<()> =
   match s with
   | SAssign (x, v) ->
@@ -216,7 +215,11 @@ val eval_statement (s: stmt) : m<()> =
 \subsection{Specificities of Python Semantics}
 
 \section{Scopes}
-Python does not have a syntax criteria to distinguish between declarations and assignments. Take a look at the programs figure \vref{fig:scopeillustration}:
+We describe in this section the main concepts of scopes management in Pyhton and their implementation in the skeletal semantics.
+We will focus on functions, classes' scopes have a few differences which will be explained in the corresponding section.
+
+\subsection{Scopes in Python}
+Python does not have a syntax criteria to distinguish between declarations and assignments. Consider the programs Figure \vref{fig:scopeillustration}:
 \begin{figure}[ht]
   \centering
   \begin{minipage}{0.3\textwidth}
@@ -255,7 +258,7 @@ def wrapper():
 wrapper()
     \end{minted}
   \end{minipage}
-  \caption{\label{fig:scopeillustration}Three programs illustrating scopes behavior}
+  \caption{\label{fig:scopeillustration}Scopes Behavior}
 \end{figure}
 
 The first one will output \texttt{1} and \texttt{0}: by default, assignments are declarations.
@@ -272,31 +275,18 @@ In this case, the \texttt{nonlocal} keyword is what we need.
 It uses the closest definition of \texttt{x} among the upper scopes.
 Like the second one, it displays two \texttt{1}.
 
-\subsection{Scopes Management}
-Scopes are not handled in Monat's thesis, we present an extension of the semantics allowing mutiple scopes in Pyskel.
-In the semantics, there is a unique environment \(\mathcal E \overset{\text{def}}{=} \mathsf{Id} \rightharpoonup \mathsf{Addr} \cup \mathtt{LocalUndef}\).
-The keywords \texttt{global} and \texttt{nonlocal} are not supported.
-Undefined variables are detected at parsing time and illformed programs are not accepted.
+%\subsection{Scopes Management}
+%Scopes are not handled in Monat's thesis, we present an extension of the semantics allowing mutiple scopes in Pyskel.
+%In the semantics, there is a unique environment \(\mathcal E \overset{\text{def}}{=} \mathsf{Id} \rightharpoonup \mathsf{Addr} \cup \mathtt{LocalUndef}\).
+%The keywords \texttt{global} and \texttt{nonlocal} are not supported.
+%Undefined variables are detected at parsing time and illformed programs are not accepted.
 
-\subsection{Scopes in Python}
-We expose in this section the main concepts of scope management in Python through a few examples.
 
-First, the \emph{global scope} contains all the toplevel declarations, it is a mapping from varialbe names to heap addresses.
-It contains toplevel variables, such as user-defined functions, and builtin objects.
+To summarize, the \emph{global scope} contains all the toplevel declarations, it is a mapping from variable names to heap addresses.
+The local variables of a function and its parameters are stored in the scope associated with the function.
 
-Functions evaluation requires local memory.
-This local memory corresponds to a fresh scope containing the function parameter and local variables.
 
-The last type of evaluation context is class definitions.
-They behave like function, but without the concept of unbound locals.
-
-\subsubsection{Function body}
-By default, each statement of the form \texttt{id = value} will allocate a new variable \texttt{x} in the current scope.
-To modify a global variable from the body of a function, one must use the \texttt{global} keyword.
-By doing so, assignments to some variable \texttt{x} will effectively modify the global \texttt{x} without creating a local variable in the function body.
-To use some variable defined in one of the upper scpoes, but not necesseraly the global one, we use the \texttt{nonlocal} keyword.
-
-To implement the \texttt{global} and \texttt{local} keywords, a function must know the global scope and the scope in wich it was defined.
+Functions may need to access upper scopes, especially in case of reads to non local variables.
 We depict this dependency as a tree of scope, as shown in figure \vref{fig:functionscope}.
 
 \begin{figure}[ht!]
@@ -320,7 +310,7 @@ def incr():
     \node[draw, thick] (GS) at (0, 0) {Global Scope};
     \node[draw] (Wr) at (2, -2) {\texttt{wrapper}'s scope};
     \node[draw] (Wo) at (2, -4) {\texttt{worker}'s scope};
-    \node[draw] (F) at (-2, -2) {\texttt{f}'s scope};
+    \node[draw] (F) at (-2, -2) {\texttt{incr}'s scope};
     \node[draw, dashed, right] (GSV) at (4, 0) {\texttt{wrapper}, \texttt{x}, \texttt{incr}};
     \node[draw, dashed, right] (WrV) at (4, -2) {\texttt{data}, \texttt{worker}};
     \draw[->, >=stealth, thick] (Wr) to (GS);
@@ -336,7 +326,7 @@ def incr():
 Note that scopes are computed at parsing time: when a function is called, its local variable are allocated but not initialized yet.
 Thus, reading a not yet defined variable in a function definition will result in an \texttt{UnboundLocalError} instead of a classical \texttt{NameError}. This is illustrated figure \vref{fig:unboundlocal}.
 
-\begin{figure}
+\begin{figure}[ht!]
   \centering
   \begin{minipage}{0.5\textwidth}
   \begin{minted}{python}
@@ -349,27 +339,19 @@ def f():
   \caption{\label{fig:unboundlocal}Example of a program throwing \texttt{UnboundLocalError}}
 \end{figure}
 
-\subsubsection{Classes definition}
-Evaluation of classes definition is very close to function evaluations.
-The main difference is that variables are \emph{not} allocated before evaluation.
-
 \subsection{Scopes in Pyskel}
-In this section, we present how pyskel manages scopes and evaluation contexts.
+Pyskel Scopes are by designed the exact representation of scope trees given Figure~\vref{fig:functionscope}.
+As it is possible to have multiple references to the same scope, we use a key-value mechanism to make the scopes mutable.
 
-\subsubsection{Scopes}
-Scopes are mutables and potentially references by more than one object.
-We use a key-value approach to identify scopes,
 
-As we have seen, classes' scopes and functions' scopes differ in their structure, since functions need to allocate undefined values.
-This results in two different scope types in pyskel:
-\begin{itemize}
-\item total scopes are mapping from identifiers to heap addresses, they are represented by the following type:
+\begin{description}
+\item[Total scopes] are mapping from identifiers to heap addresses, they are represented by the following type:
   \begin{minted}{python}
 type total_scope = (tscope_up: maybe<scope_id>, tmapping: map<addr>)
   \end{minted}
   The definition is straight forward, a total scope is a mapping and some optional scope.
   the \texttt{tscope\_up} is used to look up nonlocal variables.
-\item partial scopes can accept uninitialized values, we use an option type to represent this property:
+\item[Partial scopes] can accept uninitialized values, we use an option type to represent this property:
   \begin{minted}{python}
 type maybe<a> =
   | Nothing
@@ -377,10 +359,9 @@ type maybe<a> =
 
 type partial_scope = (pscope_up: maybe<scope_id>, pmapping: map<maybe<addr>>)
   \end{minted}
-\end{itemize}
+\end{description}
 
-Note that scope ids are also useful for the tree structure of the scope. A partial scope can be defined in a total scope and vice versa.
-
+Note that scope identifiers are also useful for the tree structure of the scope. A partial scope can be defined in a total scope and vice versa.
 The link betwin scope ids and scopes is done with a map of \texttt{any\_scope}:
 \begin{minted}{python}
 type any_scope = | TotalScope total_scope
@@ -389,24 +370,24 @@ type any_scope = | TotalScope total_scope
 
 
 \section{Objects and Classes}
-Python values are stored on the heap.
-They can be
+Python values are stored on the \emph{heap}.
+Formallly, the heap is a mapping from addresses to Python objects, such as:
 \begin{itemize}
-\item builtin constants: such as integers, strings, booleans, \dots.
-\item Functions or methods
-\item Classes
-\item Intances
+\item Constants (integers, strings, booleans, \dots)
+\item Functions and methods
+\item Classes and intances
 \end{itemize}
 
-A class defines a new \emph{type}, it can be seen as a set of definitions.
-These definitions forms the \emph{fields} of a class.
-Programmers familiar with object-oriented programming know that classes can inherit from each other.
-The set of all the fields of a class and its superclasses forms the \emph{attributes} of this class.
+We describe in this section the Object-Oriented features of Python and the Skel implementation.
 
-The notion of field is hidden in python, but it is nevertheless necessary to understand the underlying mechanism of classes.
+\subsection{Classes}
+A class defines a new \emph{type}, it consists of a set of \emph{fields}, declared in the class body.
+Classes can inherit from each other, the set of fields of a class and its super classes form the \emph{attributes} of the class.
+
+
+The notion of field is hidden in Python, but it is nevertheless necessary to understand the underlying mechanism of classes.
 In the code sample giver figure~\vref{fig:class}, the class \texttt{Example} has three fields: \texttt{value}, \texttt{function} and \texttt{method}.
-From the point of vue of the class, nothing distinguish \texttt{function} and \texttt{method} (except the number of arguments).
-The self parameter is not a keyword, but an identifier like any other.
+As the class does not inherit, the set of attributes is equal to the set of fields.
 
 \begin{figure}[ht]
   \centering
@@ -417,41 +398,108 @@ class Example:
   def function():
     return 1
 
-  def method(self):
-    self.x = 2
+  def method(self, value):
+    self.x = value
     \end{minted}
   \end{minipage}
   \caption{\label{fig:class}A class in Pyhton}
 \end{figure}
 
 
-An instance is simply a reference to some class.
-The question is: where is stored the \texttt{x} of \texttt{Example}'s instances?
-Each python object has an additional dictionnary where its dynamic attributes are stored.
+In Skel, classes are represented by a map from identifiers to addresses and the list of its super classes.
+To collect the fields of a class, we first need to evaluate its body.
+This evaluation is performed in a new total scope, which provides us directly the class dictionary.
 
-\section{Internal Functions}
+\subsection{Instances}
+To create an instance of some class in Python, we call the class like a function like this: \texttt{Example()}.
+This will create a reference to the class called.
+Instances shares the attributes of the superclass, they can access them with the dot operator: \texttt{Example().value}.
+This operator can have some side effects.
+In particular, if an instance accesses a function of its class, a new \emph{method} will be allocated and returned instead of the funcion.
+This method will contain two addresses: the instances and the function.
+Thus, the method call will simply pass the instance as first parameter to the function.
+This mechanism is illustrated Figure~\vref{fig:method}.
+
+\begin{figure}[ht!]
+  \centering
+  \begin{minipage}{0.8\textwidth}
+    \begin{minted}{python}
+class Example:
+    def method(self, value):
+        self.x = value
+
+instance = Example()
+
+Example.method # is a function
+instance.method # is a method, referencing `instance` and `Example.method`
+instance.method(2) # is the same as
+Example.method(instance, 2)
+    \end{minted}
+  \end{minipage}
+  \caption{\label{fig:method}Functions and Methods}
+\end{figure}
 
 
-\section{Initial State}
-As explained Section~\ref{sec:monad}, evaluating a python program is a stateful computation.
-Therefore, we need to provide some initial state to the interpreter.
-This state must contain builtin objects, such as the two booleans \texttt{true} and \texttt{false}, but also all the builtin classes.
+As you can see, instances can have additional fields that are not part of the class (\texttt{x} in the example).
+Those fields are store on the heap, next to the object they belong to.
+It takes the form of an additional dictionary, stored next its the value on the heap.
 
-In python all classes inherits from the \texttt{object} class, and are instances of the class type.
-The initial state is computed in two steps.
-The constants (such as \texttt{None}, \texttt{true} or \texttt{false}) are hardcoded in the semantics.
-The builtin classes (such as \texttt{int}, \texttt{BaseException} or \texttt{object}) are defined in a prelude file.
+In Pyskel, the heap maps integers to pairs \textsf{(ObjN, ObjS)}, respectively for the nominal and structural parts.
 
-To evaluate a python program, we must evaluate the prelude first, to collect all of its definitions, and then call the evaluator with the output of the prelude on the program file.
+\section{Initial State and Internal Functions}
+The evaluation of a Python program requires some initial state.
+This state must contains builtin object, functions that operates on this object and classes to organize the functions properly.
+This elements can be defined in multiple places:
+\begin{itemize}
+\item In the skel semantics, \texttt{True} and \texttt{False} are two example
+\item In the OCaml implementation, if the term is let unspecified in the semantics.
+  This is the case for integer addtition, since intergers are not specified.
+\item In a prelude Python file, which contains the builtin classes.
+\end{itemize}
 
-\section{Technical details}
+\begin{figure}[ht!]
+  \centering
+  \begin{tikzpicture}
+    \node[draw, very thick] (SS) at (0, 0) {Skel};
+    \node (Un) at (2, 3) {Unspecified Terms};
+    \node (Sp) at (4.5, -3) {Specified Terms};
+    \node (Im) at (7, 3) {Implementation};
+    \node[draw] (In) at (9, 0) {Interpreter};
+
+    \node (PP) at (13, 4) {Python Program};
+    \node (PA) at (13, 2) {Python AST};
+    \node[draw, very thick] (PF) at (8, -4) {Prelude};
+    \node (IS) at (13, -2) {Initial State};
+
+    \node[draw] (R) at (15, 0) {Result};
+
+    \draw[->, >=stealth] (SS) |- node[near start, right]{\texttt{necroml}} (Un);
+    \draw[->, >=stealth] (SS) |- node[near start, right]{\texttt{necroml}} (Sp);
+    \draw[->, >=stealth, very thick] (Un) -- node[midway, above, sloped]{Pyskel}  (Im);
+    \draw[->, >=stealth] (Im) -| node[near end, left]{\texttt{necroml}} (In);
+    \draw[->, >=stealth] (Sp) |- node[near end, above]{\texttt{necroml}} (In);
+
+    \draw[->, >=stealth, very thick] (PF) -| node[near start, above]{Link to OCaml code}(IS);
+    \draw[->, >=stealth] (PP) -- node[midway, right]{\texttt{pyre-ast}} (PA);
+    \draw[->, >=stealth] (In) |- node[near end, above]{Run} (IS);
+
+    \draw[->, >=stealth] (In) -- node[near start, above]{Run} (R);
+    \draw[rounded corners=4, ->, >=stealth] (PA) |- (R);
+    \draw[rounded corners=4, ->, >=stealth] (IS) |- (R);
+  \end{tikzpicture}
+  \caption{Structure of the Pyskel Project}
+\end{figure}
+
+
+\section{Deriving a python interpreter}
 The Skel semantics can be used to derived debuggers and interpreters.
 
-The pyskel library export a python interpreter.
-The parsing is
+\section{Conclusion and future works}
+We presented a formalization of Python semantics in Skel, and used this semantics to derive a python interpreter.
+This work has led to the improvement of the necro ecosystem, necrodebug in particular.
 
+Some points in the python semantics are not covered by pyskel yet, such as generators, a large part of the standard library.
 
-\section{Bibliography}
 \nocite{*}
 \bibliographystyle{eptcs}
 \bibliography{paper}
