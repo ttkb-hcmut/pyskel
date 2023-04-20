@@ -21,3 +21,6 @@ Semantics/pyskel/test.py
 *.aux
 *.out
 *.pag
+*.bbl
+*.blg
+*.toc
