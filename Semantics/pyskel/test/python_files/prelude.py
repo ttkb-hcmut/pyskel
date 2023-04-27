@@ -17,3 +17,27 @@ class int(object):
     @pyskel_internal("IntAdd")
     def __add__(self, other):
         pass
+
+class function:
+    pass
+
+class method:
+    pass
+
+class list:
+    pass
+
+class tuple:
+    pass
+
+class NotImplementedType:
+    pass
+
+class NoneType:
+    pass
+
+class str:
+    pass
+
+class bool:
+    pass

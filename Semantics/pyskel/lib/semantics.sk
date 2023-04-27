@@ -7,7 +7,16 @@
 
 (* General String map *)
 type id
-val someId : id
+val typeId : id
+val functionId : id
+val methodId : id
+val listId : id
+val tupleId : id
+val notImplementedTypeId : id
+val noneTypeId : id
+val strId : id
+val intId : id
+val boolId : id
 val __init__ : id
 
 val debug : () -> ()
@@ -17,6 +26,8 @@ val debug : () -> ()
 type pythonInt
 type pythonString
 
+type binop = | Add
+val op : binop -> id
 
 type stmt =
   | SExpr expr
@@ -49,6 +60,7 @@ type expr =
   | Call (expr, list<expr>)
   | Attribute (expr, id)
   | Addr addr
+  | BinOp (binop, expr, expr)
   | InternalToken internal
 
 type internal
@@ -710,7 +722,7 @@ val eval_stmt (s: stmt) : m<()> =
     let at_args =@ mapM<expr, addr> (eval_expr, args) in
 
 
-    let c = Class(name, at_args, someId, dict) in
+    let c = Class(name, at_args, typeId, dict) in
     let addr =@ alloc (c, Locked) in
     writeEnv (name, addr)
   | SNonlocal _ -> return<()> ()
@@ -869,6 +881,23 @@ val eval_call ((at_c: addr), (args: list<expr>)): m<addr> =
   | _ -> setFlag<addr> (Exn todoError)
   end
 
+val typeof (a: addr): m<addr> =
+  let (objn, _) =@ read a in
+  match objn with
+  | Inst c -> ret c
+  | Class _ -> readEnv typeId
+  | Fun _ -> readEnv functionId
+  | Method _ -> readEnv methodId
+  | List _ -> readEnv listId
+  | Tuple _ -> readEnv tupleId
+  | NotImplemented -> readEnv notImplementedTypeId
+  | None -> readEnv noneTypeId
+  | String _ -> readEnv strId
+  | Int _ -> readEnv intId
+  | Bool _ -> readEnv boolId
+  | Internal _ -> readEnv functionId
+  end
+
 val eval_expr (e: expr): m<addr> =
   match e with
   | InternalToken token ->
@@ -887,6 +916,20 @@ val eval_expr (e: expr): m<addr> =
     (* Eval the function *)
     let at_c =@ eval_expr e_c in
     eval_call (at_c, args)
+
+  (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.131 *)
+  | BinOp(binop, e1, e2) ->
+     let at1 =@ eval_expr e1 in
+     let method = op(binop) in
+     let type1 =@ typeof at1 in
+     let has_attr =@ has_attribute (type1, method) in
+     match has_attr with
+     | True ->
+        let fun =@ get_attribute (at1, method) in
+        eval_call (fun, Cons<expr> (e2, Nil<expr>))
+     | False ->
+        raise_exn<addr> _TypeError
+     end
   end
 
 val eval_constant (c:constant) : m<addr> =

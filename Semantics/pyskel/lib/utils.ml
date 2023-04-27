@@ -21,6 +21,9 @@ module Inst(M:MONAD) = struct
     include Heap_inst.Spec(M)
     include Exn_inst.Spec(M)
 
+    let op = function
+      | Add -> M.ret "__add__"
+
     let call_internal (op, args) = M.ret @@
       let (let*) = M.bind in
       fun (r, s) ->
@@ -86,7 +89,8 @@ let rec translate_expr (e: Concrete.Expression.t) : expr =
   | Concrete.Expression.BinOp {left; op; right; _} -> begin
       match op with
       | Concrete.BinaryOperator.Add ->
-        Call(Attribute(translate_expr left, "__add__"), to_pyskel_list [translate_expr right])
+        (* Call(Attribute(translate_expr left, "__add__"), to_pyskel_list [translate_expr right]) *)
+        BinOp(Add, translate_expr left, translate_expr right)
       | _ -> failwith "BinOp not specified yet"
     end
   | _ -> failwith "Expression not specified yet"
