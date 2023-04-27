@@ -8,8 +8,6 @@ module Inst(M:MONAD) = struct
     include Heap_inst.TYPE
     include Map_inst.TYPE
     include Exn_inst.TYPE
-
-    type internal = IntAdd
   end = Types
 
 
@@ -24,26 +22,7 @@ module Inst(M:MONAD) = struct
     let op = function
       | Add -> M.ret "__add__"
 
-    let call_internal (op, args) = M.ret @@
-      let (let*) = M.bind in
-      fun (r, s) ->
-      match op with
-      | Types.IntAdd ->
-        match args with
-        | Cons (op1, (Cons (op2, Nil))) ->
-          let* ((at1, _), heap) = heapRead (s.heap, op1) in
-          let* ((at2, _), heap) = heapRead (heap, op2) in begin
-            match at1, at2 with
-            |Int left, Int right ->
-              let* (result, heap) = heapAlloc (heap, (Int (left + right), Locked)) in
-              M.ret (Cur result, {s with heap})
-            | _ -> M.ret (Cur r.builtins.notImplemented, {s with heap})
-          end
-        | _ ->
-          let module SMap = Map.Make(String) in
-          let err = SMap.find _TypeError s.global_scope in
-          let* (inst, heap) = heapAlloc (s.heap, (Inst err, Locked)) in
-          M.ret (Flag (Exn inst), {s with heap})
+    let internal_int_add (x, y) = M.ret @@ (+) x y
   end
 
   module Interpreter = Semantics.MakeInterpreter(Spec)

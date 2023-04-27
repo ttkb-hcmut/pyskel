@@ -24,6 +24,8 @@ val debug : () -> ()
 (* Python ast *)
 (* see https://github.com/grievejia/pyre-ast/blob/trunk/lib/concrete.ml *)
 type pythonInt
+val internal_int_add : (pythonInt, pythonInt) -> pythonInt
+
 type pythonString
 
 type binop = | Add
@@ -63,9 +65,28 @@ type expr =
   | BinOp (binop, expr, expr)
   | InternalToken internal
 
-type internal
+type internal = | IntAdd
 
-val call_internal : (internal, list<addr>) -> m<addr>
+val call_internal ((internal : internal), (args : list<addr>)) : m<addr> =
+  match internal with
+  | IntAdd ->
+     match args with
+     | Cons (op1, Cons (op2, Nil)) ->
+       let (objn1, _) =@ read op1 in
+       let (objn2, _) =@ read op2 in
+       match (objn1, objn2) with
+       | (Int left, Int right) ->
+          let result = internal_int_add (left, right) in
+          alloc (Int result, Fields map_empty<addr>)
+       | _ ->
+          let r =@ ask in
+          ret r.builtins.notImplemented
+       end
+     | _ ->
+        raise_exn<addr> _TypeError
+     end
+  end
+
 
 (* Python object *)
 (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.65 *)
