@@ -84,7 +84,7 @@
 \maketitle
 
 % Will be removed in the future, just for me
-\tableofcontents
+%\tableofcontents
 
 \begin{abstract}
   We present Pyskel, a formalization of Python semantics in Skel.
@@ -106,7 +106,6 @@ as mentionned in~\cite{noizet:hal-03784478}.
 
 \section{Monadic Skeletal Semantics}
 The semantics desbribed in the paper is written in the Skel language.
-
 A skeletal semantics can be seen as an interpreter, were some functions and types are left unspecified.
 This enables the description of semantics with implementation-dependent features.
 
@@ -115,11 +114,17 @@ Consider the Python statement \texttt{x = \(e\)}.
 To provide the semantics of this statement, we write a Skel function \texttt{eval\_statement}, which takes a statement as argument.
 A first version of this function is represented in Figure~\vref{fig:simpleskel}.
 
+In this example, we start by declaring types.
+Some of them are unspecified (they do not have a definition) \texttt{addr}, \texttt{heap}, \texttt{env} and \texttt{expression}.
+The \texttt{statement} type is specified, and depends on unspecified types.
+Then, we declare two unspecified functions \texttt{eval\_expression} and \texttt{write\_env} by giving their types.
+Finally, we provide one specified function which destructs one statement and modify some state.
+
 \begin{figure}
 \centering
 \begin{minipage}{0.8\textwidth}
 \begin{minted}[custom lexer=true]{sk.py}
-type addr, heap, env
+type addr, heap, env, id
 type expression
 type statement = | SAssign (id, expression)
 
@@ -137,7 +142,7 @@ val eval_statement (heap, env, stmt) =
 \caption{\label{fig:simpleskel}A simple skeletal semantics}
 \end{figure}
 
-\asi{You need to describe step by step what the code does}
+%\asi{You need to describe step by step what the code does}
 This semantics contains a function \texttt{eval\_statement}, which takes a statement and modify the state accordingly, hence the similarity to an interpreter.
 Note that exception handling is not represented here.
 The actual code would be even more complex, involving sum types and pattern matching at each function call.
@@ -188,6 +193,8 @@ val bind<a, b> ((w: m<a>), (f: a -> m<b>)) : m<b> =
     | Cur a -> let fa = f a in fa (r, s')
     | Flag f -> (Flag<b> f, s')
     end
+
+binder @ = bind
 \end{minted}
 \end{minipage}
 \caption{\label{fig:skelmonad}The \texttt{m} Monad}
@@ -197,8 +204,15 @@ The monad we use in our semantics is given Figure~\vref{fig:skelmonad}.
 The two types \texttt{r} and \texttt{s} represent the read-only and read-write state of the interpreter.
 The \texttt{exn} is used for control flow operations, such as \texttt{return} statement handling or exceptions.
 
+The quantification of types is explicit in Skel, so polymorphic functions must declare the type variables they depend on.
+This is done with the bracket notation: \texttt{val return<a>}.
+Types can also be parameterized, with a similar notation.
+
+
 This results in the Skel code given Figure~\vref{fig:monadiceval}.
-\asi{you need to explain how binders work and polymorphism}
+The \texttt{=@} operator is simply syntax sugar for monadic binds.
+It is similar to OCaml's \texttt{(let*)} and Haskell's leftarrows in \texttt{do}-notation.
+%\asi{you need to explain how binders work and polymorphism}
 \begin{figure}[ht!]
 \centering
 \begin{minipage}{0.5\textwidth}
@@ -300,6 +314,9 @@ The local variables of a function and its parameters are stored in the scope ass
 
 Functions may need to access upper scopes, especially in case of reads to non-local variables.
 We depict this dependency as a tree of scope, as shown in figure~\vref{fig:functionscope}.
+The dashed arrows do not correspond to a real link in the scope type, as the global scope is treated separately.
+In fact, the scopes the \texttt{incr} and \texttt{wrapper} functions do not have an upper scope.
+The arrow is drawn to make the scope hierarchy clear.
 
 \begin{figure}[ht!]
   \begin{minipage}{0.35\textwidth}
@@ -325,14 +342,13 @@ def incr():
     \node[draw] (F) at (-2, -2) {\texttt{incr}'s scope};
     \node[draw, dashed, right] (GSV) at (4, 0) {\texttt{wrapper}, \texttt{x}, \texttt{incr}};
     \node[draw, dashed, right] (WrV) at (4, -2) {\texttt{data}, \texttt{worker}};
-    \draw[->, >=stealth, thick] (Wr) to (GS);
+    \draw[->, >=stealth, thick, densely dashed] (Wr) to (GS);
     \draw[->, >=stealth, thick] (Wo) to (Wr);
-    \draw[->, >=stealth, thick] (F) to (GS);
+    \draw[->, >=stealth, thick, densely dashed] (F) to (GS);
     \draw[->, >=stealth, densely dashed, thick] (GS) -- (GSV);
     \draw[->, >=stealth, densely dashed, thick] (Wr) -- (WrV);
   \end{tikzpicture}
   \end{minipage}
-  \asi{I'm not sure about the arrows going from incr and wrapper to global}
   \caption{\label{fig:functionscope}Simple Functions and Corresponding Scopes}
 \end{figure}
 
@@ -462,16 +478,13 @@ It takes the form of an additional dictionary, stored next its the value on the 
 \asi{this next sentence is not clear: what is nominal and what is structural?}
 In Pyskel, the heap maps integers to pairs \textsf{(ObjN, ObjS)}, respectively for the nominal and structural parts.
 
-\section{Initial State and Internal Functions}
-The evaluation of a Python program requires some initial state.
-This state must contains builtin object, functions that operates on this object and classes to organize the functions properly.
-This elements can be defined in multiple places:
-\begin{itemize}
-\item In the skel semantics, \texttt{True} and \texttt{False} are two examples.
-\item In the OCaml implementation, if the term is let unspecified in the semantics.
-  This is the case for integer addtition, since intergers are not specified.
-\item In a prelude Python file, which contains the builtin classes.
-\end{itemize}
+\section{Deriving an Interpreter}
+\subsection{Project Structure}
+The Skel toolchain contains a program called \texttt{necroml}.
+This takes a Skel semantics and translate it to an ocaml interpreter.
+The generated code takes the form of a functor requiring an implementation of the undefined terms.
+Pyskel uses \texttt{necroml} to derive a simple Python interpreter which is used to test the semantics.
+For a better understanding of the Pyskel project structure, we provide a summary diagram Figure~\vref{fig:pyskel}.
 
 \begin{figure}[ht!]
   \centering
@@ -503,12 +516,33 @@ This elements can be defined in multiple places:
     \draw[rounded corners=4, ->, >=stealth] (PA) |- (R);
     \draw[rounded corners=4, ->, >=stealth] (IS) |- (R);
   \end{tikzpicture}
-  \caption{Structure of the Pyskel Project}
+  \caption{\label{fig:pyskel}Structure of the Pyskel Project}
 \end{figure}
 
+\subsection{Initial State}
+The evaluation of a Python program requires some initial state.
+This state must contains builtin object, functions that operates on this object and classes to organize the functions properly.
+This elements can be defined in multiple places:
+\begin{itemize}
+\item In the skel semantics, \texttt{True} and \texttt{False} are two examples.
+\item In the OCaml implementation, if the term is let unspecified in the semantics.
+  This is the case for integer addtition, since intergers are not specified.
+\item In a prelude Python file, which contains the builtin classes.
+\end{itemize}
 
-\section{Deriving a Python interpreter}
-The Skel semantics can be used to derived debuggers and interpreters.
+\subsection{Internal function}
+As we have seen, some values can have unspecified types.
+Builtin functions that operates on unspecified types must have an unspecified part.
+In pyskel, we made the choice to keep the unspecified part as small as possible.
+
+
+For example, the addition on integers is let unspecified, but the checks (for types and the number of arguments) are written in skel.
+To link Skel code to python function, we use a special decorator in the prelude file: \texttt{@pyskel\_internall("IntAdd")}.
+This means ``when you try to call this function, call the skel code associated with the \texttt{IntAdd} token instead''.
+
+
+% TODO: explain the internal type and the call_internal function
+
 
 \section{Conclusion and future works}
 We presented a formalization of Python semantics in Skel, and used this semantics to derive a Python interpreter.
