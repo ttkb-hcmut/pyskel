@@ -111,8 +111,8 @@ This enables the description of semantics with implementation-dependent features
 
 \subsection{A Simple Skeletal Semantics}
 Consider the Python statement \texttt{x = \(e\)}.
-To provide the semantics of this statement, we write a Skel function \texttt{eval\_statement}, which takes a statement as argument.
-A first version of this function is represented in Figure~\vref{fig:simpleskel}.
+To provide the semantics of this statement, we write a Skel program containing an evaluation function, which takes a statement as argument.
+A first version of this program is represented in Figure~\vref{fig:simpleskel}.
 
 In this example, we start by declaring types.
 Some of them are unspecified (they do not have a definition) \texttt{addr}, \texttt{heap}, \texttt{env} and \texttt{expression}.
@@ -228,14 +228,9 @@ val eval_statement (s: stmt) : m<()> =
 \end{figure}
 
 \subsection{Specificities of Python Semantics}
-The semantics of Python are quite classical, but some points deserve special attention, in particular:
-% TODO: explain why it is non-trivial
-% TODO: don't like lists
-\begin{itemize}
-\item The management of scopes and captures
-\item The management of the object oriented
-\item Internal functions
-\end{itemize}
+The semantics of Python is quite classical, but some points deserve special attention.
+In particular, the management of scopes and captures differs from most functional languages.
+We will also focus on the object oriented features and the management of the initial state of the interpreter.
 
 \section{Scopes}
 We describe in this section the main concepts of scopes management in Python and their implementation in Skel.
@@ -243,6 +238,8 @@ We will focus on functions, classes' scopes have a few differences which will be
 % TODO: cite section
 
 \subsection{Scopes in Python}
+% TODO: par défaut la portée d'une variable dans une fonctions, une variable est créée localement (où que ce soit dans la fonction) (propriété syntaxique).
+% Ne concerne que l'écriture. Si elle n'est que lue, pas de variable locale
 Python does not have a syntax criteria to distinguish between declarations and
 assignments. Consider the programs of Figure~\vref{fig:scopeillustration}:
 \begin{figure}[ht]
@@ -372,7 +369,10 @@ def f():
 Pyskel Scopes are by designed the exact representation of scope trees given Figure~\vref{fig:functionscope}.
 As it is possible to have multiple references to the same scope, we use a key-value mechanism to make the scopes mutable.
 
-\asi{you could say which scope is used where, putting a forward pointer if necessary}
+We distinguish two scope types. One for functions body, which must handle \texttt{LocalUndef}, and one for classes body, which must not.
+Those two scope types are called \emph{partial} and \emph{total}.
+%\asi{you could say which scope is used where, putting a forward pointer if necessary}
+% TODO: classes and functions
 \begin{description}
 \item[Total scopes] are mapping from identifiers to heap addresses, they are represented by the following type:
   \begin{minted}{python}
@@ -401,12 +401,7 @@ type any_scope = | TotalScope total_scope
 
 \section{Objects and Classes}
 Python values are stored on the \emph{heap}.
-Formallly, the heap is a mapping from addresses to Python objects, such as:
-\begin{itemize}
-\item Constants (integers, strings, booleans, \dots)
-\item Functions and methods
-\item Classes and intances
-\end{itemize}
+Formallly, the heap is a mapping from addresses to Python objects, such as constants (integers, strings, booleans, \dots), functions, methods, classes and intances.
 
 We describe in this section the Object-Oriented features of Python and the Skel implementation.
 
@@ -448,7 +443,9 @@ This operator can have some side effects.
 In particular, if an instance accesses a function of its class, a new \emph{method} will be allocated and returned instead of the funcion.
 This method will contain two addresses: the instances and the function.
 Thus, the method call will simply pass the instance as first parameter to the function.
+The given instance will be modified according to the function body defined in the class.
 This mechanism is illustrated Figure~\vref{fig:method}.
+
 \asi{say this is how late binding is implemented}
 
 \begin{figure}[ht!]
@@ -475,8 +472,9 @@ As you can see, instances can have additional fields that are not part of the cl
 Those fields are store on the heap, next to the object they belong to.
 It takes the form of an additional dictionary, stored next its the value on the heap.
 
-\asi{this next sentence is not clear: what is nominal and what is structural?}
-In Pyskel, the heap maps integers to pairs \textsf{(ObjN, ObjS)}, respectively for the nominal and structural parts.
+%\asi{this next sentence is not clear: what is nominal and what is structural?}
+%In Pyskel, the heap maps integers to pairs \textsf{(ObjN, ObjS)}, respectively for the nominal and structural parts.
+In Pyskel, the heap maps integers to pairs. One field is for the object itself, the other is for it's dynamic dictionary.
 
 \section{Deriving an Interpreter}
 \subsection{Project Structure}
@@ -541,8 +539,38 @@ To link Skel code to python function, we use a special decorator in the prelude 
 This means ``when you try to call this function, call the skel code associated with the \texttt{IntAdd} token instead''.
 
 
-% TODO: explain the internal type and the call_internal function
+In pratice, the semantics contains the following definition:
+\begin{minted}[custom lexer=true]{sk.py}
+type internal = | IntAdd
 
+val call_internal ((internal : internal), (args : list<addr>)) : m<addr> =
+  match internal with
+  | IntAdd ->
+     match args with
+     | Cons (op1, Cons (op2, Nil)) ->
+       let (objn1, _) =@ read op1 in
+       let (objn2, _) =@ read op2 in
+       match (objn1, objn2) with
+       | (Int left, Int right) ->
+          let result = internal_int_add (left, right) in
+          alloc (Int result, Fields map_empty<addr>)
+       | _ ->
+          let r =@ ask in
+          ret r.builtins.notImplemented
+       end
+     | _ ->
+        raise_exn<addr> _TypeError
+     end
+  end
+\end{minted}
+And, in the prelude file:
+\begin{minted}{python}
+class int(object):
+    @pyskel_internal("IntAdd")
+    def __add__(self, other):
+        pass
+\end{minted}
+This successfuly interpret programs using the \texttt{+} operator on integers.
 
 \section{Conclusion and future works}
 We presented a formalization of Python semantics in Skel, and used this semantics to derive a Python interpreter.
