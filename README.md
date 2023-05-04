@@ -20,8 +20,7 @@ necroml
 necrodebug
 ```
 
-
-The project is based on dune, do you can run `dune build` to build and `dune test` to run the test suite.
+To build the project, go in `Semantics/pyskel` and run `dune build`. You may then run tests using `dune test`.
 
 ### Module system
 
