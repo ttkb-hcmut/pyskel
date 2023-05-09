@@ -573,7 +573,7 @@ class int(object):
 This successfuly interpret programs using the \texttt{+} operator on integers.
 
 \section{Related Work}
-There have been several formalization of Python. Monat gives a denotational
+There have been several proposals to formalize the semantics of Python. Monat gives a denotational
 semantics (on paper) in his PhD thesis~\cite{Monat2021}, which is used to build analyzers
 as part of the MOPSA plateform~\cite{MonatOuadjaoutMine2021}. His semantics is quite faithful as it
 is derived from the official Python interpreter written in C. Our work is
@@ -609,7 +609,7 @@ into bytecode.
 We presented a formalization of Python semantics in Skel, and used this semantics to derive a Python interpreter.
 This work has led to the improvement of the necro ecosystem, necrodebug in particular.
 
-Regarding generators, we plan to reuse the work of Khayam et al.~\cite{???} to
+Regarding generators, we plan to reuse the work of Khayam et al.~\cite{KhayamSchmitt2023} to
 capture their semantics through a delimited continuation monad. More precisely,
 they have shown that, since Skel is almost in administrative normal
 form~\cite{SabryFelleisen1992}, one may choose an appropriate monad to seamlessly capture
