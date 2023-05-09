@@ -573,18 +573,48 @@ class int(object):
 This successfuly interpret programs using the \texttt{+} operator on integers.
 
 \section{Related Work}
-\cite{Monat2021} is quite faithful (based on the C interpreter), but it
-is denotational (thus cannot be interpreted) and it is not mechanized
+There have been several formalization of Python. Monat gives a denotational
+semantics (on paper) in his PhD thesis~\cite{Monat2021}, which is used to build analyzers
+as part of the MOPSA plateform~\cite{MonatOuadjaoutMine2021}. His semantics is quite faithful as it
+is derived from the official Python interpreter written in C. Our work is
+heavily based on this semantics, extended to deal with additional features
+absent from Monat's thesis, such as nonlocal and global scopes. We also provide
+an interpreter, whereas Monat's semantics is not executable. In addition, our
+Python semantics is written in Skel, so it can easily be reused for other tools.
+We have for instance used the Necro debugger~\cite{necrodebug} to execute our semantics
+step by step.
 
-\cite{Karkour2022} is done in F*, but it does not target Python, only its
-bytecode, which is much simpler
+An initial attempt to formalize the semantics of Python was done by Politz et
+al. as a small-step operational
+semantics~\cite{PolitzMartinezMilanoWarrenPattersonLiChitipothuKrishnamurthi2013}.
+This semantics is actually given as a translation, called \emph{desugaring}, of Python in
+\(\lambda_{\pi}\), a much smaller core language. The desugaring process and an interpreter for \(\lambda_{\pi}\)
+are both written in Racket~\cite{FelleisenFindlerFlattKrishnamurthiBarzilayMcCarthyTobin-Hochstadt2018}. When combined, they provide an
+interpreter for Python source code. We have relied on this work to
+grasp the subtlest aspects of Python's scopes, in particular for classes defined
+inside functions. The distinguishing feature of our work compared to theirs is
+that we describe the semantics directly at the source code level. The desugared
+semantics can be quite different from the source, especially when it is
+CPS-transformed to deal with generators. Understanding the semantics of a Python
+program by looking at an execution of its desugared version may be challenging.
+Although we have not yet implemented generators, we discuss how we plan to
+seamlessly handle them in Section~\ref{sec:conclusion}.
 
-need to compare to \cite{PolitzMartinezMilanoWarrenPattersonLiChitipothuKrishnamurthi2013}
+Finally, some recent work aims at giving a semantics of Python's bytecode
+through a formalization in F*~\cite{Karkour2022}. Once again, it is challenging
+to reason about a source program through the semantics of a translation, here
+into bytecode.
 
-
-\section{Conclusion and future works}
+\section{Conclusion and Future Work}\label{sec:conclusion}
 We presented a formalization of Python semantics in Skel, and used this semantics to derive a Python interpreter.
 This work has led to the improvement of the necro ecosystem, necrodebug in particular.
+
+Regarding generators, we plan to reuse the work of Khayam et al.~\cite{???} to
+capture their semantics through a delimited continuation monad. More precisely,
+they have shown that, since Skel is almost in administrative normal
+form~\cite{SabryFelleisen1992}, one may choose an appropriate monad to seamlessly capture
+side-effects, including the interruption of a computation because of a
+\texttt{yield}.
 
 Some points in the Python semantics are not covered by pyskel yet, such as generators, a large part of the standard library.
 
