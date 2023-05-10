@@ -101,8 +101,8 @@ but it lacks an official and clear specification, the
 \href{https://docs.python.org/3/library/}{\emph{Python Standard Library}}
 begin the closest things to it.
 A formal specification of a programming language is necessary to prove properties on programs.
-We propose a Skel implementation of Raphaël Monat's Python pure semantics\cite{Monat2021},
-as mentionned in~\cite{noizet:hal-03784478}.
+We propose a Skel implementation of Raphaël Monat's Python pure semantics\cite{Monat2021}.
+%as mentionned in~\cite{noizet:hal-03784478}.
 
 \section{Monadic Skeletal Semantics}
 The semantics desbribed in the paper is written in the Skel language.
@@ -540,6 +540,9 @@ This means ``when you try to call this function, call the skel code associated w
 
 
 In pratice, the semantics contains the following definition:
+\begin{figure}
+  \centering
+  \begin{minipage}{0.9\textwidth}
 \begin{minted}[custom lexer=true]{sk.py}
 type internal = | IntAdd
 
@@ -570,6 +573,8 @@ class int(object):
     def __add__(self, other):
         pass
 \end{minted}
+  \end{minipage}
+\end{figure}
 This successfuly interpret programs using the \texttt{+} operator on integers.
 
 \section{Related Work}
