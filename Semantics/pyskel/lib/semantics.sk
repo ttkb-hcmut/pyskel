@@ -464,7 +464,7 @@ val readEnv (id:id) : m<addr> =
     let scope_var = map_lookup<var_scope> (id, e) in
     match scope_var with
     | Nothing ->
-        let ma =@ find_local (id, scope_id) in
+        let ma =@ find_nonlocal (id, scope_id) in
         match ma with
         | Nothing -> find_global id
         | Just Nothing -> raise_exn<addr> _NameError
@@ -543,6 +543,9 @@ val locals (ss: body) : list<id> =
     let tail = locals ss' in
     Cons<id>(x, tail)
   | Cons(SFunctionDef(name, _, _), ss') ->
+    let tail = locals ss' in
+    Cons<id>(name, tail)
+  | Cons(SClassDef(name, _, _, _), ss') ->
     let tail = locals ss' in
     Cons<id>(name, tail)
   | Cons(_, ss') -> locals ss'
@@ -725,11 +728,14 @@ val eval_stmt (s: stmt) : m<()> =
       let tmp = remove<id>(eq<id>, non_locals, loc) in
       remove<id>(eq<id>, global_vars, tmp) in
     let e =@ ask in
-    let scope_up =
+    let scope_up =@
       match e.local_env with
-      | Globl -> Nothing<scope_id>
-      | InFun(_, sid) -> Just<scope_id> sid
-      | InClass(_, sid) -> Just<scope_id> sid
+      | Globl -> return<maybe<scope_id>> Nothing<scope_id>
+      | InFun(_, sid) -> return<maybe<scope_id>> (Just<scope_id> sid)
+      | InClass(_, sid) ->
+          let s =@ readScope sid in
+          let sup = scope_up s in
+          return<maybe<scope_id>> sup
       end in
     let f = Fun(name, args, bodyLocals, body, scope_up) in
     let addr =@ alloc (f, Locked) in
