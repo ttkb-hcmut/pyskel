@@ -118,7 +118,9 @@ In this example, we start by declaring types.
 Some of them are unspecified (they do not have a definition) \texttt{addr}, \texttt{heap}, \texttt{env} and \texttt{expression}.
 The \texttt{statement} type is specified, and depends on unspecified types.
 Then, we declare two unspecified functions \texttt{eval\_expression} and \texttt{write\_env} by giving their types.
-Finally, we provide one specified function which destructs one statement and modify some state.
+Finally, we provide one specified function, \texttt{eval\_statement}, which destructs one statement and modify some state.
+Note that exception handling is not represented here.
+The actual code would be even more complex, involving sum types and pattern matching at each function call.
 
 \begin{figure}
 \centering
@@ -143,9 +145,6 @@ val eval_statement (heap, env, stmt) =
 \end{figure}
 
 %\asi{You need to describe step by step what the code does}
-This semantics contains a function \texttt{eval\_statement}, which takes a statement and modify the state accordingly, hence the similarity to an interpreter.
-Note that exception handling is not represented here.
-The actual code would be even more complex, involving sum types and pattern matching at each function call.
 
 The state is, for now, a heap and an environment.
 When a Python expressions is computed (through \texttt{eval\_expression}), we get an heap address.
@@ -157,7 +156,7 @@ The interpretor state is made explicit at each function call, and modifications 
 We present in the next part a monadic version of the semantics, more adapted to our needs.
 
 \subsection{Monadic Style}
-By using a monadic style, we can hide the state to functions which don't need it.
+By using a monadic style, we can hide the state to functions that don't need it.
 It also make the code closer to an imperative language.
 
 \begin{figure}[ht!]
@@ -173,8 +172,8 @@ type exn<a> =
   | Cur a
   | Flag flag
 
-type s = ( global_scope: global_scope
-         , heap: pythonHeap
+type s = ( heap: python_heap
+         , global_scope: global_scope
          , scope_heap: scope_heap
          )
 type r = ( local_env: env
@@ -202,7 +201,7 @@ binder @ = bind
 
 The monad we use in our semantics is given Figure~\vref{fig:skelmonad}.
 The two types \texttt{r} and \texttt{s} represent the read-only and read-write state of the interpreter.
-The \texttt{exn} is used for control flow operations, such as \texttt{return} statement handling or exceptions.
+The \texttt{exn} is used for control flow operations, such as \texttt{return} statements or exception handling.
 
 The quantification of types is explicit in Skel, so polymorphic functions must declare the type variables they depend on.
 This is done with the bracket notation: \texttt{val return<a>}.
@@ -234,7 +233,8 @@ We will also focus on the object oriented features and the management of the ini
 
 \section{Scopes}
 We describe in this section the main concepts of scopes management in Python and their implementation in Skel.
-We will focus on functions, classes' scopes have a few differences which will be explained in the corresponding section.
+We will focus on functions, the class scopes have some differences that will be explained individually in this section.
+
 % TODO: cite section
 
 \subsection{Scopes in Python}
@@ -313,7 +313,7 @@ Functions may need to access upper scopes, especially in case of reads to non-lo
 We depict this dependency as a tree of scope, as shown in figure~\vref{fig:functionscope}.
 The dashed arrows do not correspond to a real link in the scope type, as the global scope is treated separately.
 In fact, the scopes the \texttt{incr} and \texttt{wrapper} functions do not have an upper scope.
-The arrow is drawn to make the scope hierarchy clear.
+The arrow is drawn to make the scope hierarchy clear. The global scope can be accessed implicitly when reading a global variable (even if it is not used with the \texttt{global} keyword).
 
 \begin{figure}[ht!]
   \begin{minipage}{0.35\textwidth}
@@ -392,7 +392,7 @@ type partial_scope = (pscope_up: maybe<scope_id>, pmapping: map<maybe<addr>>)
 
 Note that scope identifiers are also useful for the tree structure of the scope.
 A partial scope can be linked from a total scope and vice versa.
-The connection between scope ids and scopes is done with a map of \texttt{any\_scope}:
+The connection between scope identifiers and scopes is done with a map of \texttt{any\_scope}:
 \begin{minted}{python}
 type any_scope = | TotalScope total_scope
                  | PartialScope partial_scope
@@ -402,16 +402,15 @@ type any_scope = | TotalScope total_scope
 \section{Objects and Classes}
 Python values are stored on the \emph{heap}.
 Formallly, the heap is a mapping from addresses to Python objects, such as constants (integers, strings, booleans, \dots), functions, methods, classes and intances.
-
 We describe in this section the Object-Oriented features of Python and the Skel implementation.
 
 \subsection{Classes}
 A class defines a new \emph{type}, it consists of a set of \emph{fields}, declared in the class body.
-Classes can inherit from each other, the set of fields of a class and its super classes form the \emph{attributes} of the class.
+Classes can inherit from each other, the set of fields of a class and its super classes forms the \emph{attributes} of the class.
 
 
 The notion of field is hidden in Python, but it is nevertheless necessary to understand the underlying mechanism of classes.
-In the code sample giver figure~\vref{fig:class}, the class \texttt{Example} has three fields: \texttt{value}, \texttt{function} and \texttt{method}.
+In the code sample given figure~\vref{fig:class}, the class \texttt{Example} has three fields: \texttt{value}, \texttt{function} and \texttt{method}.
 As the class does not inherit from another class, the set of attributes is equal to the set of fields.
 
 \begin{figure}[ht]
@@ -435,6 +434,9 @@ In Skel, classes are represented by a map from identifiers to addresses and by t
 To collect the fields of a class, we first need to evaluate its body.
 This evaluation is performed in a new total scope, which directly builds the class dictionary.
 
+Some precautions must be taken when evaluating a class. In particular, a function defined inside the class body does not have access to the other fields of the class.
+The upper scope of the function is in fact the upper scope of the class and not the class itself.
+
 \subsection{Instances}
 To create an instance of some class in Python, we call the class like a function: \texttt{Example()}.
 This will create a reference to the class called.
@@ -446,7 +448,7 @@ Thus, the method call will simply pass the instance as first parameter to the fu
 The given instance will be modified according to the function body defined in the class.
 This mechanism is illustrated Figure~\vref{fig:method}.
 
-\asi{say this is how late binding is implemented}
+%\asi{say this is how late binding is implemented}
 
 \begin{figure}[ht!]
   \centering
@@ -460,8 +462,8 @@ instance = Example()
 
 Example.method # is a function
 instance.method # is a method, referencing `instance` and `Example.method`
-instance.method(2) # is the same as
-Example.method(instance, 2)
+instance.method(2) # is the nearly the same as
+Example.method(instance, 2) # "nearly" because no method is allocated here
     \end{minted}
   \end{minipage}
   \caption{\label{fig:method}Functions and Methods}
@@ -470,16 +472,12 @@ Example.method(instance, 2)
 
 As you can see, instances can have additional fields that are not part of the class (\texttt{x} in the example).
 Those fields are store on the heap, next to the object they belong to.
-It takes the form of an additional dictionary, stored next its the value on the heap.
-
-%\asi{this next sentence is not clear: what is nominal and what is structural?}
-%In Pyskel, the heap maps integers to pairs \textsf{(ObjN, ObjS)}, respectively for the nominal and structural parts.
 In Pyskel, the heap maps integers to pairs. One field is for the object itself, the other is for it's dynamic dictionary.
 
 \section{Deriving an Interpreter}
 \subsection{Project Structure}
 The Skel toolchain contains a program called \texttt{necroml}.
-This takes a Skel semantics and translate it to an ocaml interpreter.
+It takes a Skel semantics and translate it to an OCaml interpreter.
 The generated code takes the form of a functor requiring an implementation of the undefined terms.
 Pyskel uses \texttt{necroml} to derive a simple Python interpreter which is used to test the semantics.
 For a better understanding of the Pyskel project structure, we provide a summary diagram Figure~\vref{fig:pyskel}.
@@ -507,7 +505,7 @@ For a better understanding of the Pyskel project structure, we provide a summary
     \draw[->, >=stealth] (Sp) |- node[near end, above]{\texttt{necroml}} (In);
 
     \draw[->, >=stealth, very thick] (PF) -| node[near start, above]{Link to OCaml code}(IS);
-    \draw[->, >=stealth] (PP) -- node[midway, right]{\texttt{pyre-ast}} (PA);
+    \draw[->, >=stealth] (PP) -- node[midway, right]{\texttt{pyre-ast} (parser)} (PA);
     \draw[->, >=stealth] (In) |- node[near end, above]{Run} (IS);
 
     \draw[->, >=stealth] (In) -- node[near start, above]{Run} (R);
@@ -516,6 +514,15 @@ For a better understanding of the Pyskel project structure, we provide a summary
   \end{tikzpicture}
   \caption{\label{fig:pyskel}Structure of the Pyskel Project}
 \end{figure}
+
+The \texttt{necroml} program generates specified terms and requires an implementation of unspecified ones.
+This implementation is written in OCaml and it part of the Pyskel project.
+With this two parts, a functor instanciation gives the Python interpreter.
+We can run this interpreter by providing a program and some initial state (the monadic state).
+This state is computed from a prelude file containing the builtin classes (such as exceptions) and some glue to fit well with the Skel semantics (see Section \vref{sec:internal function}).
+Python programs are parsed with the \texttt{pyre-ast} OCaml library and then translated to the Pyskel AST.
+The whole code is available at the following url: \href{https://gitlab.inria.fr/skeletons/pyskel}{\url{https://gitlab.inria.fr/skeletons/pyskel}}.
+
 
 \subsection{Initial State}
 The evaluation of a Python program requires some initial state.
@@ -528,7 +535,8 @@ This elements can be defined in multiple places:
 \item In a prelude Python file, which contains the builtin classes.
 \end{itemize}
 
-\subsection{Internal function}
+\subsection{Internal Function}
+\label{sec:internal function}
 As we have seen, some values can have unspecified types.
 Builtin functions that operates on unspecified types must have an unspecified part.
 In pyskel, we made the choice to keep the unspecified part as small as possible.
