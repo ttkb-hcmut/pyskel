@@ -87,7 +87,7 @@
 %\tableofcontents
 
 \begin{abstract}
-  We present Pyskel, a formalization of Python semantics in Skel.
+  We present PySkel, a formalization of Python semantics in Skel.
   We describe a subset of the Python programming language including assignments,
   function calls, object oriented features, and exceptions.
   This formalization is used to generate an OCaml interpreter and a debugger.
@@ -104,7 +104,7 @@ well as
 its reference implementation written in C. Unfortunately, none of them are given
 as formal semantics and only the latter is executable. For documentation and
 teaching purposes, and to provide the foundations for program analysis, it is most
-useful to have a formal and executable semantics of a language. We thus propose a formal
+useful to have a formal and executable semantics of a language. We thus propose PySkel, a formal
 semantics of Python, written as a Skeletal Semantics~\cite{noizet:hal-03784478}
 description, from which an OCaml interpreter can be extracted. Our work is based
 on Monat's denotational semantics of Python~\cite{Monat2021}.
@@ -378,8 +378,8 @@ def f():
   \caption{\label{fig:unboundlocal}Program Throwing \texttt{UnboundLocalError}}
 \end{figure}
 
-\subsection{Scopes in Pyskel}
-Pyskel Scopes are by designed the exact representation of scope trees given Figure~\vref{fig:functionscope}.
+\subsection{Scopes in PySkel}
+PySkel Scopes are by designed the exact representation of scope trees given Figure~\vref{fig:functionscope}.
 As it is possible to have multiple references to the same scope, we use a key-value mechanism to make the scopes mutable.
 
 We distinguish two scope types. One for functions body, which must handle \texttt{LocalUndef}, and one for classes body, which must not.
@@ -485,15 +485,15 @@ Example.method(instance, 2) # "nearly" because no method is allocated here
 
 As you can see, instances can have additional fields that are not part of the class (\texttt{x} in the example).
 Those fields are store on the heap, next to the object they belong to.
-In Pyskel, the heap maps integers to pairs. One field is for the object itself, the other is for it's dynamic dictionary.
+In PySkel, the heap maps integers to pairs. One field is for the object itself, the other is for it's dynamic dictionary.
 
 \section{Deriving an Interpreter}\label{sec:interp}
 \subsection{Project Structure}
 The Skel toolchain contains a program called \texttt{necroml}.
 It takes a Skel semantics and translate it to an OCaml interpreter.
 The generated code takes the form of a functor requiring an implementation of the undefined terms.
-Pyskel uses \texttt{necroml} to derive a simple Python interpreter which is used to test the semantics.
-For a better understanding of the Pyskel project structure, we provide a summary diagram Figure~\vref{fig:pyskel}.
+PySkel uses \texttt{necroml} to derive a simple Python interpreter which is used to test the semantics.
+For a better understanding of the PySkel project structure, we provide a summary diagram Figure~\vref{fig:pyskel}.
 
 \begin{figure}[ht!]
   \centering
@@ -513,7 +513,7 @@ For a better understanding of the Pyskel project structure, we provide a summary
 
     \draw[->, >=stealth] (SS) |- node[near start, right]{\texttt{necroml}} (Un);
     \draw[->, >=stealth] (SS) |- node[near start, right]{\texttt{necroml}} (Sp);
-    \draw[->, >=stealth, very thick] (Un) -- node[midway, above, sloped]{Pyskel}  (Im);
+    \draw[->, >=stealth, very thick] (Un) -- node[midway, above, sloped]{PySkel}  (Im);
     \draw[->, >=stealth] (Im) -| node[near end, left]{\texttt{necroml}} (In);
     \draw[->, >=stealth] (Sp) |- node[near end, above]{\texttt{necroml}} (In);
 
@@ -525,17 +525,16 @@ For a better understanding of the Pyskel project structure, we provide a summary
     \draw[rounded corners=4, ->, >=stealth] (PA) |- (R);
     \draw[rounded corners=4, ->, >=stealth] (IS) |- (R);
   \end{tikzpicture}
-  \caption{\label{fig:pyskel}Structure of the Pyskel Project}
+  \caption{\label{fig:pyskel}Structure of the PySkel Project}
 \end{figure}
 
 The \texttt{necroml} program generates specified terms and requires an implementation of unspecified ones.
-This implementation is written in OCaml and it part of the Pyskel project.
-With this two parts, a functor instanciation gives the Python interpreter.
+This implementation is written in OCaml and it part of the PySkel project.
+With this two parts, a functor instantiation gives the Python interpreter.
 We can run this interpreter by providing a program and some initial state (the monadic state).
 This state is computed from a prelude file containing the builtin classes (such as exceptions) and some glue to fit well with the Skel semantics (see Section \vref{sec:internal function}).
-Python programs are parsed with the \texttt{pyre-ast} OCaml library and then translated to the Pyskel AST.
+Python programs are parsed with the \texttt{pyre-ast} OCaml library and then translated to the PySkel AST.
 The whole code is available at the following url: \href{https://gitlab.inria.fr/skeletons/pyskel}{\url{https://gitlab.inria.fr/skeletons/pyskel}}.
-
 
 \subsection{Initial State}
 The evaluation of a Python program requires some initial state.
@@ -552,15 +551,14 @@ This elements can be defined in multiple places:
 \label{sec:internal function}
 As we have seen, some values can have unspecified types.
 Builtin functions that operates on unspecified types must have an unspecified part.
-In pyskel, we made the choice to keep the unspecified part as small as possible.
+In PySkel, we made the choice to keep the unspecified part as small as possible.
 
 
-For example, the addition on integers is let unspecified, but the checks (for types and the number of arguments) are written in skel.
+For example, the addition on integers is let unspecified, but the checks (for types and the number of arguments) are written in Skel.
 To link Skel code to python function, we use a special decorator in the prelude file: \texttt{@pyskel\_internall("IntAdd")}.
 This means ``when you try to call this function, call the skel code associated with the \texttt{IntAdd} token instead''.
 
 
-In pratice, the semantics contains the following definition:
 \begin{figure}
   \centering
   \begin{minipage}{0.9\textwidth}
@@ -595,8 +593,10 @@ class int(object):
         pass
 \end{minted}
   \end{minipage}
+\caption{Internal Functions in PySkel}\label{fig:internal}
 \end{figure}
-This successfuly interpret programs using the \texttt{+} operator on integers.
+In practice, the semantics contains the code shown in Figure~\ref{fig:internal}.
+This successfully interpret programs that use the \texttt{+} operator on integers.
 
 \section{Related Work}\label{sec:related}
 There have been several proposals to formalize the semantics of Python. Monat gives a denotational
@@ -632,8 +632,11 @@ to reason about a source program through the semantics of a translation, here
 into bytecode.
 
 \section{Conclusion and Future Work}\label{sec:conclusion}
-We presented a formalization of Python semantics in Skel, and used this semantics to derive a Python interpreter.
-This work has led to the improvement of the necro ecosystem, necrodebug in particular.
+We presented PySkel, a formalization of Python semantics in Skel, which we used
+to derive a Python interpreter in OCaml. The development of this complex
+semantics has helped identify areas of improvement for necro, such as the
+inclusion of files. Although our formalization only cover a tiny subset of the
+standard library, we believe it is illustrative enough to be easily extended.
 
 Regarding generators, we plan to reuse the work of Khayam et al.~\cite{KhayamSchmitt2023} to
 capture their semantics through a delimited continuation monad. More precisely,
@@ -641,8 +644,6 @@ they have shown that, since Skel is almost in administrative normal
 form~\cite{SabryFelleisen1992}, one may choose an appropriate monad to seamlessly capture
 side-effects, including the interruption of a computation because of a
 \texttt{yield}.
-
-Some points in the Python semantics are not covered by pyskel yet, such as generators, a large part of the standard library.
 
 \nocite{*}
 \bibliographystyle{eptcs}
