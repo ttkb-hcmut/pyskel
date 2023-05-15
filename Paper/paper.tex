@@ -118,7 +118,7 @@ Section~\ref{sec:related} and conclude in Section~\ref{sec:conclusion}. Our
 formal semantics and interpreter are available online.\footnote{\url{https://gitlab.inria.fr/skeletons/pyskel}}
 
 \section{Monadic Skeletal Semantics}\label{sec:skel}
-The semantics desbribed in the paper is written in the Skel language.
+The semantics described in the paper is written in the Skel language.
 A skeletal semantics can be seen as an interpreter, were some functions and types are left unspecified.
 This enables the description of semantics with implementation-dependent features.
 
@@ -239,10 +239,12 @@ val eval_statement (s: stmt) : m<()> =
 \caption{\label{fig:monadiceval}Monadic Skeletal Semantics}
 \end{figure}
 
-\subsection{Specificities of Python Semantics}
+\subsection{Specificity of Python Semantics}
 The semantics of Python is quite classical, but some points deserve special attention.
-In particular, the management of scopes and captures differs from most functional languages.
-We will also focus on the object oriented features and the management of the initial state of the interpreter.
+In particular, the management of scopes and captures differs from most
+functional languages (Section~\ref{sec:scopes}).
+We also focus on the object oriented features (Section~\ref{sec:objects}) and
+the management of the initial state of the interpreter (Section~\ref{sec:interp}).
 
 \section{Scopes}\label{sec:scopes}
 We describe in this section the main concepts of scopes management in Python and their implementation in Skel.
@@ -414,7 +416,7 @@ type any_scope = | TotalScope total_scope
 
 \section{Objects and Classes}\label{sec:objects}
 Python values are stored on the \emph{heap}.
-Formallly, the heap is a mapping from addresses to Python objects, such as constants (integers, strings, booleans, \dots), functions, methods, classes and intances.
+Formally, the heap is a mapping from addresses to Python objects, such as constants (integers, strings, booleans, \dots), functions, methods, classes and instances.
 We describe in this section the Object-Oriented features of Python and the Skel implementation.
 
 \subsection{Classes}
@@ -532,7 +534,7 @@ The \texttt{necroml} program generates specified terms and requires an implement
 This implementation is written in OCaml and it part of the PySkel project.
 With this two parts, a functor instantiation gives the Python interpreter.
 We can run this interpreter by providing a program and some initial state (the monadic state).
-This state is computed from a prelude file containing the builtin classes (such as exceptions) and some glue to fit well with the Skel semantics (see Section \vref{sec:internal function}).
+This state is computed from a prelude file containing the builtin classes (such as exceptions) and some glue to fit well with the Skel semantics (see Section~\vref{sec:internal function}).
 Python programs are parsed with the \texttt{pyre-ast} OCaml library and then translated to the PySkel AST.
 The whole code is available at the following url: \href{https://gitlab.inria.fr/skeletons/pyskel}{\url{https://gitlab.inria.fr/skeletons/pyskel}}.
 
@@ -541,14 +543,13 @@ The evaluation of a Python program requires some initial state.
 This state must contains builtin object, functions that operates on this object and classes to organize the functions properly.
 This elements can be defined in multiple places:
 \begin{itemize}
-\item In the skel semantics, \texttt{True} and \texttt{False} are two examples.
+\item In the Skel semantics, \texttt{True} and \texttt{False} are two examples.
 \item In the OCaml implementation, if the term is let unspecified in the semantics.
-  This is the case for integer addtition, since intergers are not specified.
+  This is the case for integer addition, since integers are not specified.
 \item In a prelude Python file, which contains the builtin classes.
 \end{itemize}
 
-\subsection{Internal Function}
-\label{sec:internal function}
+\subsection{Internal Function}\label{sec:internal function}
 As we have seen, some values can have unspecified types.
 Builtin functions that operates on unspecified types must have an unspecified part.
 In PySkel, we made the choice to keep the unspecified part as small as possible.
@@ -556,7 +557,7 @@ In PySkel, we made the choice to keep the unspecified part as small as possible.
 
 For example, the addition on integers is let unspecified, but the checks (for types and the number of arguments) are written in Skel.
 To link Skel code to python function, we use a special decorator in the prelude file: \texttt{@pyskel\_internall("IntAdd")}.
-This means ``when you try to call this function, call the skel code associated with the \texttt{IntAdd} token instead''.
+This means ``when you try to call this function, call the Skel code associated with the \texttt{IntAdd} token instead''.
 
 
 \begin{figure}
@@ -634,7 +635,7 @@ into bytecode.
 \section{Conclusion and Future Work}\label{sec:conclusion}
 We presented PySkel, a formalization of Python semantics in Skel, which we used
 to derive a Python interpreter in OCaml. The development of this complex
-semantics has helped identify areas of improvement for necro, such as the
+semantics has helped identify areas of improvement for Necro, such as the
 inclusion of files. Although our formalization only cover a tiny subset of the
 standard library, we believe it is illustrative enough to be easily extended.
 
