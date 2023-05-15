@@ -11,7 +11,7 @@
 \usepackage{iftex}
 \usepackage{varioref}
 
-\ifpdf
+\ifpdf{}
 \usepackage{underscore}         % Only needed if you use pdflatex.
 \usepackage[T1]{fontenc}        % Recommended with pdflatex
 \else
@@ -19,7 +19,7 @@
 \fi
 
 \makeatletter
-\ifwindows
+\ifwindows{}
   \renewcommand{\minted@optlistcl@quote}[2]{%
     \ifstrempty{#2}{\detokenize{#1}}{\detokenize{#1="#2"}}}
 \else
@@ -65,7 +65,7 @@
   \email{martin.andrieux@ens-rennes.fr}
   \and
   Alan Schmitt
-  \institute{Inria, France}
+  \institute{INRIA, France}
   \email{alan.schmitt@inria.fr}
 }
 
@@ -89,22 +89,35 @@
 \begin{abstract}
   We present Pyskel, a formalization of Python semantics in Skel.
   We describe a subset of the Python programming language including assignments,
-  function calls, object oriented features and exceptions.
-  This formalization can be used to automatically derive interpreters and debuggers.
+  function calls, object oriented features, and exceptions.
+  This formalization is used to generate an OCaml interpreter and a debugger.
 \end{abstract}
 
 \section{Introduction}\label{sec:introduction}
 
-The Python programming language is widely used by programmers,
-but it lacks an official and clear specification, the
-\href{https://docs.python.org/3/reference/}{\emph{Python Language Reference}} and
-\href{https://docs.python.org/3/library/}{\emph{Python Standard Library}}
-begin the closest things to it.
-A formal specification of a programming language is necessary to prove properties on programs.
-We propose a Skel implementation of Raphaël Monat's Python pure semantics\cite{Monat2021}.
-%as mentionned in~\cite{noizet:hal-03784478}.
+The Python programming language is widely used. It is quite complex, however, for
+instance for its scoping rules. The most relevant documents to specify it are
+the
+\href{https://docs.python.org/3/reference/}{\emph{Python Language Reference}}, the
+\href{https://docs.python.org/3/library/}{\emph{Python Standard Library}}, as
+well as
+its reference implementation written in C. Unfortunately, none of them are given
+as formal semantics and only the latter is executable. For documentation and
+teaching purposes, and to provide the foundations for program analysis, it is most
+useful to have a formal and executable semantics of a language. We thus propose a formal
+semantics of Python, written as a Skeletal Semantics~\cite{noizet:hal-03784478}
+description, from which an OCaml interpreter can be extracted. Our work is based
+on Monat's denotational semantics of Python~\cite{Monat2021}.
 
-\section{Monadic Skeletal Semantics}
+The paper is organized as follows. We introduce Skeletal Semantics in
+Section~\ref{sec:skel}. We focus on two challenging features of Python and their
+description in Skel in Section~\ref{sec:scopes} for scopes and
+Section~\ref{sec:objects} for object-oriented features. We show how to derive an
+interpreter in Section~\ref{sec:interp}. We discuss related work in
+Section~\ref{sec:related} and conclude in Section~\ref{sec:conclusion}. Our
+formal semantics and interpreter are available online.\footnote{\url{https://gitlab.inria.fr/skeletons/pyskel}}
+
+\section{Monadic Skeletal Semantics}\label{sec:skel}
 The semantics desbribed in the paper is written in the Skel language.
 A skeletal semantics can be seen as an interpreter, were some functions and types are left unspecified.
 This enables the description of semantics with implementation-dependent features.
@@ -231,7 +244,7 @@ The semantics of Python is quite classical, but some points deserve special atte
 In particular, the management of scopes and captures differs from most functional languages.
 We will also focus on the object oriented features and the management of the initial state of the interpreter.
 
-\section{Scopes}
+\section{Scopes}\label{sec:scopes}
 We describe in this section the main concepts of scopes management in Python and their implementation in Skel.
 We will focus on functions, the class scopes have some differences that will be explained individually in this section.
 
@@ -399,7 +412,7 @@ type any_scope = | TotalScope total_scope
 \end{minted}
 
 
-\section{Objects and Classes}
+\section{Objects and Classes}\label{sec:objects}
 Python values are stored on the \emph{heap}.
 Formallly, the heap is a mapping from addresses to Python objects, such as constants (integers, strings, booleans, \dots), functions, methods, classes and intances.
 We describe in this section the Object-Oriented features of Python and the Skel implementation.
@@ -474,7 +487,7 @@ As you can see, instances can have additional fields that are not part of the cl
 Those fields are store on the heap, next to the object they belong to.
 In Pyskel, the heap maps integers to pairs. One field is for the object itself, the other is for it's dynamic dictionary.
 
-\section{Deriving an Interpreter}
+\section{Deriving an Interpreter}\label{sec:interp}
 \subsection{Project Structure}
 The Skel toolchain contains a program called \texttt{necroml}.
 It takes a Skel semantics and translate it to an OCaml interpreter.
@@ -585,7 +598,7 @@ class int(object):
 \end{figure}
 This successfuly interpret programs using the \texttt{+} operator on integers.
 
-\section{Related Work}
+\section{Related Work}\label{sec:related}
 There have been several proposals to formalize the semantics of Python. Monat gives a denotational
 semantics (on paper) in his PhD thesis~\cite{Monat2021}, which is used to build analyzers
 as part of the MOPSA platform~\cite{MonatOuadjaoutMine2021}. His semantics is quite faithful as it
