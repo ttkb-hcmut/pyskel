@@ -54,6 +54,7 @@
 \minted@def@optcl@novalue{custom lexer}{-x}
 \makeatother
 \setminted{fontsize=\small}
+\newcommand{\skinl}[1]{\mintinline[custom lexer=true]{sk.py}{#1}}
 
 \usepackage{todonotes}
 \newcommand{\asi}[1]{\todo[color=blue!30,inline]{#1}}
@@ -118,20 +119,22 @@ Section~\ref{sec:related} and conclude in Section~\ref{sec:conclusion}. Our
 formal semantics and interpreter are available online.\footnote{\url{https://gitlab.inria.fr/skeletons/pyskel}}
 
 \section{Monadic Skeletal Semantics}\label{sec:skel}
-The semantics described in the paper is written in the Skel language.
-A skeletal semantics can be seen as an interpreter, were some functions and types are left unspecified.
-This enables the description of semantics with implementation-dependent features.
+The semantics described in the paper is written in Skel, the language of
+Skeletal Semantics.
+A skeletal semantics can be seen as an interpreter, where some functions and types are left unspecified.
+This enables the incremental description of a semantics with implementation-dependent features.
 
 \subsection{A Simple Skeletal Semantics}
 Consider the Python statement \texttt{x = \(e\)}.
-To provide the semantics of this statement, we write a Skel program containing an evaluation function, which takes a statement as argument.
+To provide the semantics of this statement, we write a Skel program containing
+an evaluation function \skinl{eval_statement}, which takes a statement as argument.
 A first version of this program is represented in Figure~\vref{fig:simpleskel}.
 
 In this example, we start by declaring types.
-Some of them are unspecified (they do not have a definition) \texttt{addr}, \texttt{heap}, \texttt{env} and \texttt{expression}.
-The \texttt{statement} type is specified, and depends on unspecified types.
-Then, we declare two unspecified functions \texttt{eval\_expression} and \texttt{write\_env} by giving their types.
-Finally, we provide one specified function, \texttt{eval\_statement}, which destructs one statement and modify some state.
+Some of them are unspecified (they do not have a definition): \skinl{addr}, \skinl{heap}, \skinl{env}, and \skinl{expression}.
+The \skinl{statement} type is specified and depends on unspecified types.
+Then, we declare two unspecified functions \skinl{eval_expression} and \skinl{write_env} by giving their types.
+Finally, we provide one specified function, \skinl{eval_statement}, which destructs one statement and modify some state.
 Note that exception handling is not represented here.
 The actual code would be even more complex, involving sum types and pattern matching at each function call.
 
@@ -160,12 +163,12 @@ val eval_statement (heap, env, stmt) =
 %\asi{You need to describe step by step what the code does}
 
 The state is, for now, a heap and an environment.
-When a Python expressions is computed (through \texttt{eval\_expression}), we get an heap address.
+When a Python expressions is computed (through \skinl{eval_expression}), we obtain a heap address.
 The actual Skel representation of the result is stored inside the heap.
 The environment is a map from identifiers to addresses.
 
 This code is unnecessarily cumbersome.
-The interpretor state is made explicit at each function call, and modifications are handled by the code writer.
+The interpreter state is made explicit at each function call, and modifications are handled by the code writer.
 We present in the next part a monadic version of the semantics, more adapted to our needs.
 
 \subsection{Monadic Style}
@@ -213,18 +216,17 @@ binder @ = bind
 \end{figure}
 
 The monad we use in our semantics is given Figure~\vref{fig:skelmonad}.
-The two types \texttt{r} and \texttt{s} represent the read-only and read-write state of the interpreter.
-The \texttt{exn} is used for control flow operations, such as \texttt{return} statements or exception handling.
+The two types \skinl{r} and \skinl{s} represent the read-only and read-write state of the interpreter.
+The \skinl{exn} is used for control flow operations, such as \skinl{return} statements or exception handling.
 
 The quantification of types is explicit in Skel, so polymorphic functions must declare the type variables they depend on.
-This is done with the bracket notation: \texttt{val return<a>}.
+This is done with the bracket notation: \skinl{val return<a>}.
 Types can also be parameterized, with a similar notation.
 
 
 This results in the Skel code given Figure~\vref{fig:monadiceval}.
-The \texttt{=@} operator is simply syntax sugar for monadic binds.
+The \skinl{=@} operator is simply syntax sugar for monadic binds.
 It is similar to OCaml's \texttt{(let*)} and Haskell's leftarrows in \texttt{do}-notation.
-%\asi{you need to explain how binders work and polymorphism}
 \begin{figure}[ht!]
 \centering
 \begin{minipage}{0.5\textwidth}
@@ -325,7 +327,7 @@ The local variables of a function and its parameters are stored in the scope ass
 
 
 Functions may need to access upper scopes, especially in case of reads to non-local variables.
-We depict this dependency as a tree of scope, as shown in figure~\vref{fig:functionscope}.
+We depict this dependency as a tree of scope, as shown in Figure~\vref{fig:functionscope}.
 The dashed arrows do not correspond to a real link in the scope type, as the global scope is treated separately.
 In fact, the scopes the \texttt{incr} and \texttt{wrapper} functions do not have an upper scope.
 The arrow is drawn to make the scope hierarchy clear. The global scope can be accessed implicitly when reading a global variable (even if it is not used with the \texttt{global} keyword).
@@ -425,7 +427,7 @@ Classes can inherit from each other, the set of fields of a class and its super 
 
 
 The notion of field is hidden in Python, but it is nevertheless necessary to understand the underlying mechanism of classes.
-In the code sample given figure~\vref{fig:class}, the class \texttt{Example} has three fields: \texttt{value}, \texttt{function} and \texttt{method}.
+In the code sample given in Figure~\vref{fig:class}, the class \texttt{Example} has three fields: \texttt{value}, \texttt{function} and \texttt{method}.
 As the class does not inherit from another class, the set of attributes is equal to the set of fields.
 
 \begin{figure}[ht]
