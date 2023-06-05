@@ -3,6 +3,7 @@
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+\DeclareUnicodeCharacter{03BB}{\(\lambda\)}
 \usepackage{minted}
 \usepackage{hyperref}
 \usepackage{amssymb}
@@ -136,7 +137,7 @@ monadic features to model complex effectful computations in its simple
 functional language while keeping readability. We shortly describe the features
 we need for Pyskel, a longer introduction to Skel and monads is available in~\cite{KhayamSchmitt2023}.
 
-\subsection{A Simple Skeletal Semantics}
+\subsection{Skeletal Semantics}
 Consider the Python statement \texttt{x = \(e\)}.
 To provide the semantics of this statement, we write a Skel program containing
 an evaluation function \skinl{eval_stmt}, which takes a statement as argument.
@@ -227,12 +228,12 @@ type r = ( local_env: env
 type m<a> = (r, s) -> (exn<a>, s)
 
 val return<a> (v : a) : m<a> =
-  \(_, s):(r, s) -> (Cur<a> v, s)
+  λ(_, s):(r, s) -> (Cur<a> v, s)
 
 val bind<a, b> ((w: m<a>), (f: a -> m<b>)) : m<b> =
-  \(r, s):(r, s) ->
-    let (v, s') = w (r, s) in
-    match v with
+  λ(r, s):(r, s) ->
+    let (vo, s') = w (r, s) in
+    match vo with
     | Cur a -> let fa = f a in fa (r, s')
     | Flag f -> (Flag<b> f, s')
     end
@@ -250,19 +251,54 @@ for the read-write access to the heap and the scopes (type \skinl{s}), and an \e
 indicating whether the result is a normal value or not (type \skinl{exn<a>},
 detailed below).
 
-The quantification of types is explicit in Skel, so polymorphic functions must declare the type variables they depend on.
-This is done with the bracket notation: \skinl{val return<a>}.
-Types can also be parameterized, with a similar notation.
+More precisely, the monadic type we consider is \skinl{m<a>}, where \skinl{<a>} is
+a polymorphic annotation. It is defined as \skinl{(r, s) -> (env<a>, s)}: a
+computation takes a current environment and state as input, and it returns a
+possibly exceptional result and a new state. The type \skinl{exc<a>} is either
+\skinl{Cur a}, an actual result of type \skinl{a}, or \skinl{Flag flag},
+indication a control-flow breaking result. This flag can signal the return of a
+function \skinl{Ret addr}, where \skinl{addr} is the returned value, the
+breaking out or continuing of a loop, and an exception \skinl{Exn addr} where
+\skinl{addr} is the exception object.
 
+A monad is associated with two functions. The function \skinl{return<a>} takes a
+pure value of type \skinl{a} and puts it in the monad as a computation of type
+\skinl{m<a>}. Its code in Figure~\vref{fig:skelmonad} is
+\skinl{λ(_, s):(r, s) -> (Cur<a> v, s)}: it is an anonymous function that takes
+a pair \skinl{(_,s)}, where the environment is ignored. It then returns a normal
+result \skinl{Cur<a> v} alongside the unchanged state \skinl{s}. This code shows
+that constructors of polymorphic types must be annotated with the instantiation
+type. The function \skinl{bind<a,b>} takes a computation \skinl{w} of type
+\skinl{m<a>}, a continuation \skinl{f} of type \skinl{a -> m<b>} (given a pure
+value of type \skinl{a}, return a computation of type \skinl{m<b>}), and it
+chains them together to return a computation of type \skinl{m<b>}. To this end,
+it first takes the current environment and state (\skinl{λ(r,s):(r,s) -> ...}). It
+then run the computation \skinl{w} by giving it the environment and the state,
+which return a potentially exceptional value \skinl{vo} and a new state
+\skinl{s'}. If the value is a pure value \skinl{Cur a}, then the continuation is
+called with it as well as with the initial environment and the modified
+state.\footnote{Skel is so simple that it does not have n-ary application, hence
+  the application of \skinl{f} to \skinl{a} and \skinl{(r,s')} must be done in
+  two steps with a let-binding.} If the result is a flag, then the continuation
+is not called and the flag is directly returned, changing its type to the
+expected output type.
 
-This results in the Skel code given Figure~\vref{fig:monadiceval}.
-The \skinl{=@} operator is simply syntax sugar for monadic binds.
-It is similar to OCaml's \texttt{(let*)} and Haskell's leftarrows in \texttt{do}-notation.
-\begin{figure}[ht!]
+To streamline notations, a symbol can be associated to a binder (\skinl{binder @
+= bind}), so that code of the form \skinl{bind e1 (λv -> e2)} can be simply
+written \skinl{let v =@ e1 in e2}.
+This is similar to OCaml's \texttt{(let*)} and Haskell's leftarrows in \texttt{do}-notation.
+The resulting Skel code is given in Figure~\vref{fig:monadiceval}, where the
+result of the \skinl{eval_stmt} function lives in the \skinl{m<()>} monadic
+type, i.e., computations that return unit.
+
+\begin{figure}
 \centering
 \begin{minipage}{0.5\textwidth}
 \begin{minted}[custom lexer=true]{sk.py}
-val eval_statement (s: stmt) : m<()> =
+val eval_expr : expr -> m<addr>
+val write_env : (id, addr) -> m<()>
+
+val eval_stmt (s: stmt) : m<()> =
   match s with
   | SAssign (x, v) ->
     let addr =@ eval_expr v in
