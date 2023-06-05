@@ -96,65 +96,83 @@
 
 \section{Introduction}\label{sec:introduction}
 
-The Python programming language is widely used. It is quite complex, however, for
-instance for its scoping rules. The most relevant documents to specify it are
+The Python programming language is widely used, from teaching to research and industry. It is quite complex, however, for
+instance with its non-intuitive scoping rules. The closest artifacts to an
+official Python specification are
 the
 \href{https://docs.python.org/3/reference/}{\emph{Python Language Reference}}, the
-\href{https://docs.python.org/3/library/}{\emph{Python Standard Library}}, as
-well as
-its reference implementation written in C. Unfortunately, none of them are given
-as formal semantics and only the latter is executable. For documentation and
+\href{https://docs.python.org/3/library/}{\emph{Python Standard Library}}, and CPython,
+the reference implementation written in C. Unfortunately, none of them are given
+as a formal semantics and only the latter is executable. For documentation and
 teaching purposes, and to provide the foundations for program analysis, it is most
 useful to have a formal and executable semantics of a language. We thus propose PySkel, a formal
 semantics of Python, written as a Skeletal Semantics~\cite{noizet:hal-03784478}
 description, from which an OCaml interpreter can be extracted. Our work is based
 on Monat's denotational semantics of Python~\cite{Monat2021}.
 
+The Skeletal Semantics description of a language can be thought as an
+interpreter written in a tiny functional languages, called Skel. There are a few features
+that distinguish such a description from a usual interpreter. First, Skel allows
+for partial and non-deterministic programs with the \skinl{branch} construct.
+Next, it is not necessary to specify everything: some types or functions may be
+left unspecified, either because they are not crucial to the description of the
+language, because they are implementation dependent, or because they will be
+specified later in an incremental definition. Finally, Skel is a
+\emph{syntax} to describe semantics. It is kept as simple as possible to be used
+with many tools, such as an OCaml interpreter generator, a debugger, or a Coq
+formalization generator.
+
 The paper is organized as follows. We introduce Skeletal Semantics in
 Section~\ref{sec:skel}. We focus on two challenging features of Python and their
 description in Skel in Section~\ref{sec:scopes} for scopes and
-Section~\ref{sec:objects} for object-oriented features. We show how to derive an
+Section~\ref{sec:objects} for object-oriented aspects. We show how to derive an
 interpreter in Section~\ref{sec:interp}. We discuss related work in
 Section~\ref{sec:related} and conclude in Section~\ref{sec:conclusion}. Our
 formal semantics and interpreter are available online.\footnote{\url{https://gitlab.inria.fr/skeletons/pyskel}}
 
 \section{Monadic Skeletal Semantics}\label{sec:skel}
-The semantics described in the paper is written in Skel, the language of
-Skeletal Semantics.
-A skeletal semantics can be seen as an interpreter, where some functions and types are left unspecified.
-This enables the incremental description of a semantics with implementation-dependent features.
+We first describe Skel, the language of Skeletal Semantics, and how it leverages
+monadic features to model complex effectful computations in its simple
+functional language while keeping readability.
 
 \subsection{A Simple Skeletal Semantics}
 Consider the Python statement \texttt{x = \(e\)}.
 To provide the semantics of this statement, we write a Skel program containing
-an evaluation function \skinl{eval_statement}, which takes a statement as argument.
+an evaluation function \skinl{eval_stmt}, which takes a statement as argument.
 A first version of this program is represented in Figure~\vref{fig:simpleskel}.
 
 In this example, we start by declaring types.
-Some of them are unspecified (they do not have a definition): \skinl{addr}, \skinl{heap}, \skinl{env}, and \skinl{expression}.
-The \skinl{statement} type is specified and depends on unspecified types.
-Then, we declare two unspecified functions \skinl{eval_expression} and \skinl{write_env} by giving their types.
-Finally, we provide one specified function, \skinl{eval_statement}, which destructs one statement and modify some state.
+Some of them are unspecified (they do not have a definition): \skinl{addr},
+\skinl{heap}, \skinl{env}, and \skinl{expr}. The first three are
+considered implementation-dependent, the \skinl{expr} type for expressions will be
+specified later.
+The \skinl{stmt} type is specified as a data type with a single
+constructor. It depends on unspecified types.
+Then, we declare two unspecified functions \skinl{eval_expr} and
+\skinl{write_env} by giving their types. These functions cannot be specified as
+they manipulate data of unspecified types.
+Finally, we provide one specified function, \skinl{eval_stmt}, which
+inspects one statement using pattern matching and modify some state.
 Note that exception handling is not represented here.
-The actual code would be even more complex, involving sum types and pattern matching at each function call.
 
 \begin{figure}
 \centering
 \begin{minipage}{0.8\textwidth}
 \begin{minted}[custom lexer=true]{sk.py}
 type addr, heap, env, id
-type expression
-type statement = | SAssign (id, expression)
+type expr
+type stmt = | SAssign (id, expr)
 
-val eval_expression : (heap, env, expression) -> addr
+val eval_expr : (heap, env, expr) -> (heap, env, addr)
 val write_env : (env, id, addr) -> env
 
-val eval_statement (heap, env, stmt) =
-  match stmt with
+val eval_stmt ((h:heap), (e:env), (s:stmt)) : (heap, env) =
+  match s with
   | SAssign (id, expr) =
-      let (heap, env, addr) = eval_expression (heap, env, expr) in
-      let env = write_env (env, id, addr) in
-      (heap, env, ())
+      let (h', e', addr) = eval_expr (h, e, expr) in
+      let e'' = write_env (e', id, addr) in
+      (h', e'')
+  end
 \end{minted}
 \end{minipage}
 \caption{\label{fig:simpleskel}A simple skeletal semantics}
