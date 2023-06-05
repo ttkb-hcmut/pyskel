@@ -133,7 +133,8 @@ formal semantics and interpreter are available online.\footnote{\url{https://git
 \section{Monadic Skeletal Semantics}\label{sec:skel}
 We first describe Skel, the language of Skeletal Semantics, and how it leverages
 monadic features to model complex effectful computations in its simple
-functional language while keeping readability.
+functional language while keeping readability. We shortly describe the features
+we need for Pyskel, a longer introduction to Skel and monads is available in~\cite{KhayamSchmitt2023}.
 
 \subsection{A Simple Skeletal Semantics}
 Consider the Python statement \texttt{x = \(e\)}.
@@ -168,7 +169,7 @@ val write_env : (env, id, addr) -> env
 
 val eval_stmt ((h:heap), (e:env), (s:stmt)) : (heap, env) =
   match s with
-  | SAssign (id, expr) =
+  | SAssign (id, expr) ->
       let (h', e', addr) = eval_expr (h, e, expr) in
       let e'' = write_env (e', id, addr) in
       (h', e'')
@@ -178,22 +179,31 @@ val eval_stmt ((h:heap), (e:env), (s:stmt)) : (heap, env) =
 \caption{\label{fig:simpleskel}A simple skeletal semantics}
 \end{figure}
 
-%\asi{You need to describe step by step what the code does}
+More precisely, the \skinl{eval_stmt} function takes as arguments a heap, an
+environment, and a statement. It pattern-matches the statement, and in the
+(only) case it is an assignment of \skinl{id} to \skinl{expr}, it executes the
+relevant code. First, it evaluates \skinl{expr}, returning a new heap
+\skinl{h'}, a new environment \skinl{e'}, and an address. Indeed, as in Monat's
+work~\cite{Monat2021}, the evaluation of an expression returns a heap address.
+We then extend the environment with a new binding and return it, alongside
+\skinl{h'}. All these steps are sequenced using the \skinl{let p = e1 in e2}
+operator, which evaluates \skinl{e1}, matches its result against \skinl{p}, then
+evaluates \skinl{e2}.
 
-The state is, for now, a heap and an environment.
-When a Python expressions is computed (through \skinl{eval_expression}), we obtain a heap address.
-The actual Skel representation of the result is stored inside the heap.
-The environment is a map from identifiers to addresses.
-
-This code is unnecessarily cumbersome.
-The interpreter state is made explicit at each function call, and modifications are handled by the code writer.
-We present in the next part a monadic version of the semantics, more adapted to our needs.
+This simplified code (which does not include control-flow issues such as
+returning from a function call or raising an exception) is quite cumbersome, as
+we explicitly manipulate the heap and environment at every step. Adding
+exceptions requires that we check at every evaluation step that the returned
+address is not an exception. To deal with these issues, we show in the next section how to transform
+this code in a monadic version that seamlessly propagates such effects.
 
 \subsection{Monadic Style}
-By using a monadic style, we can hide the state to functions that don't need it.
-It also make the code closer to an imperative language.
+The use of monads to add effects to a functional programming language is
+well-known~\cite{Wadler1990}. Skel having first-order functions and polymorphic
+types, it can be easily equipped with monads. We use some syntactic sugar to
+make the resulting code easier to read.
 
-\begin{figure}[ht!]
+\begin{figure}
 \centering
 \begin{minipage}{0.6\textwidth}
 \begin{minted}[custom lexer=true]{sk.py}
@@ -230,12 +240,15 @@ val bind<a, b> ((w: m<a>), (f: a -> m<b>)) : m<b> =
 binder @ = bind
 \end{minted}
 \end{minipage}
-\caption{\label{fig:skelmonad}The \texttt{m} Monad}
+\caption{The \texttt{m} Monad}\label{fig:skelmonad}
 \end{figure}
 
-The monad we use in our semantics is given Figure~\vref{fig:skelmonad}.
-The two types \skinl{r} and \skinl{s} represent the read-only and read-write state of the interpreter.
-The \skinl{exn} is used for control flow operations, such as \skinl{return} statements or exception handling.
+The monad we use in our semantics is given Figure~\vref{fig:skelmonad}. It
+combines three monads: a \emph{reader monad} to give read-only access to a local
+environment and to the built-in values (type \skinl{r}), a \emph{state monad}
+for the read-write access to the heap and the scopes (type \skinl{s}), and an \emph{exception monad}
+indicating whether the result is a normal value or not (type \skinl{exn<a>},
+detailed below).
 
 The quantification of types is explicit in Skel, so polymorphic functions must declare the type variables they depend on.
 This is done with the bracket notation: \skinl{val return<a>}.
