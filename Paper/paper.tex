@@ -317,65 +317,97 @@ the management of the initial state of the interpreter (Section~\ref{sec:interp}
 
 \section{Scopes}\label{sec:scopes}
 We describe in this section the main concepts of scopes management in Python and their implementation in Skel.
-We will focus on functions, the class scopes have some differences that will be explained individually in this section.
-
-% TODO: cite section
+We focus on functions in this section, the scopes for class have some subtleties
+that are detailed in Section~\ref{sec:objects}.
 
 \subsection{Scopes in Python}
-% TODO: par défaut la portée d'une variable dans une fonctions, une variable est créée localement (où que ce soit dans la fonction) (propriété syntaxique).
-% Ne concerne que l'écriture. Si elle n'est que lue, pas de variable locale
-Python does not have a syntax criteria to distinguish between declarations and
-assignments. Consider the programs of Figure~\vref{fig:scopeillustration}:
-\begin{figure}[ht]
+\begin{figure}
   \centering
-  \begin{minipage}{0.3\textwidth}
+  \begin{minipage}[t]{0.2\textwidth}
     \begin{minted}{python}
 x = 0
-def function():
 
-  x = 1
-  print(x)
+def foo():
+  y = 1
+  def bar():
+    z = 2
+    print(z)
+    print(y)
+    print(x)
+  bar()
 
-function(); print(x)
+foo()
     \end{minted}
   \end{minipage}
-  \begin{minipage}{0.3\textwidth}
+  \begin{minipage}[t]{0.26\textwidth}
     \begin{minted}{python}
-
 x = 0
-def function():
+
+def foo():
+  x = 1
+  print("foo:", x)
+
+foo()
+print("global:", x)
+    \end{minted}
+  \end{minipage}
+  \begin{minipage}[t]{0.24\textwidth}
+    \begin{minted}{python}
+x = 0
+
+def foo():
   global x
   x = 1
-  print(x)
+  print("foo:", x)
 
-function(); print(x)
+foo()
+print("global:", x)
     \end{minted}
   \end{minipage}
-  \begin{minipage}{0.3\textwidth}
+  \begin{minipage}[t]{0.24\textwidth}
     \begin{minted}{python}
-def wrapper():
+def foo():
   x = 0
-  def function():
+  def bar():
     nonlocal x
     x = 1
     print(x)
+  print(x)
+  bar()
+  print(x)
 
-  function(); print(x)
-wrapper()
+foo()
     \end{minted}
   \end{minipage}
-  \caption{\label{fig:scopeillustration}Scopes Behavior}
+  \caption{Scopes in Python}\label{fig:scopeillustration}
 \end{figure}
 
-The first one will output \texttt{1} and \texttt{0}: by default, assignments are declarations.
-The first code sample contains two variables named \texttt{x}: the global one (equal to \(0\)), and one local to \texttt{function} (equal to \(1\)).
+Scopes in Python are lexical, and correspond to the embedding of function
+declarations. The outermost scope is the \emph{global scope}. When accessing a
+variable, the local scope is first explored, then the surrounding scope, up
+until the global scope. This is illustrated by the first program of
+Figure~\ref{fig:scopeillustration} which prints in order \texttt{2}, then
+\texttt{1}, then \texttt{0}.
 
-To access the global version of \texttt{x} in \texttt{function}, the \texttt{global} keyword must be used.
-Its meaning is ``Some variable \texttt{x} is already defined in the global scope, use this one instead of creating a new one''.
-The second program will therefore display \texttt{1} and \texttt{1}.
+There is no notion of variable declaration in Python to state that a variable
+should be added to a scope. The first
+syntactic occurrence of an assignment to a variable corresponds to a declaration
+of this variable in the current scope. To illustrate this,
+consider the second program of Figure~\vref{fig:scopeillustration}. The inner
+function has a local \texttt{x} which is set to \texttt{1}, so the scope of
+\texttt{foo} has this variable. Hence, the program first
+prints \texttt{foo:1} for the local \texttt{x} when \texttt{foo} is called, then \texttt{global:0} for the
+global (different) \texttt{x}.
 
-One trickier case is the third program.
-It is very close to the second one but with one little difference: the entire code is placed in a function (called \texttt{wrapper} in the example).
+To tell Python that an assignment is not a variable declaration, one should
+state the scope of the variable to modify before any assignment, so that this
+assignment does not declare the variable. One may state that a variable is
+global, as shown in the third program. This programs prints \texttt{foo:1} and
+\texttt{global:1}, illustrating that the assignment in \texttt{foo} did change
+the global \texttt{x}.
+
+One trickier case is the fourth program.
+It is very close to the third one but with one little difference: the entire code is placed in a function (called \texttt{wrapper} in the example).
 To use the \texttt{x} variable defined in the \texttt{wrapper} function inside of \texttt{function}, we cannot use the \texttt{global} keyword, because \texttt{x} is not \texttt{global}.
 In this case, the \texttt{nonlocal} keyword is what we need.
 It uses the closest definition of \texttt{x} among the enclosing scopes.
