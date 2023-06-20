@@ -23,6 +23,7 @@ module Inst(M:MONAD) = struct
       | Add -> M.ret "__add__"
 
     let internal_int_add (x, y) = M.ret @@ (+) x y
+
   end
 
   module Interpreter = Semantics.MakeInterpreter(Spec)
@@ -229,6 +230,6 @@ let eval_file_with_prelude builtins heap contents =
 let eval_file contents =
   let (builtins, heap) = M.extract @@ initializedHeap () in
   eval_file_with_prelude builtins
-    { global_scope = initialEnv
+    { global_scope = emptyScope
     ; scope_heap = initialHeap
     ; heap = heap} contents

@@ -53,7 +53,7 @@ val filter<a> ((f: a -> bool), (l: list<a>)) : list<a> =
 
 (* l2 without l1  *)
 val remove<a> ((f: (a, a) -> bool), (l1: list<a>), (l2: list<a>)) : list<a> =
-  let g ((l, x):(list<a>, a)) =
+  let g = \((l, x):(list<a>, a)) ->
     let f = curry<a, a, bool> f in
     let fx = f x in
     let nfx = negate<a> fx in

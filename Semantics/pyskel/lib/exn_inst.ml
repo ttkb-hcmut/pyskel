@@ -7,6 +7,7 @@ module Spec (M:MONAD) = struct
   let _BaseException = "BaseException"
   let _Exception = "Exception"
   let _NameError = "NameError"
+  let _AttributeError = "AttributeError"
   let _UnboundLocalError = "UnboundLocalError"
   let _TypeError = "TypeError"
 

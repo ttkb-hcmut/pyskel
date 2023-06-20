@@ -1,7 +1,7 @@
 open Pyskel.Utils.InterInst.Interpreter
 module Utils = Pyskel.Utils
 
-let test_file (builtins, heap) file_name =
+let test_file (builtins, heap) file_name python =
   Printf.printf "\n\n######\n";
   Printf.printf "## %s\n" file_name;
   Printf.printf "##\n";
@@ -29,16 +29,16 @@ let test_file (builtins, heap) file_name =
       | Some addr -> begin
           (* Read the objN from heap *)
           let objn = fst @@ IMap.find addr heap in
-          Printf.printf "Pyskel:\n%s\n" @@ Utils.show_objn heap objn;
+          Printf.printf " Pyskel: %s\n" @@ Utils.show_objn heap objn;
         end
     end;
 
   (* Eval file with python *)
   let tmp_file = Filename.temp_file "" ".out" in
-  Printf.printf "CPython: \n";
+  Printf.printf "CPython: ";
   ignore @@ Sys.command @@ Printf.sprintf
-    "mktemp | xargs -I {} sh -c \"cat %s > {}; echo 'print(%s)' >> {} && python {}\" > %s"
-    file_name thing_to_print tmp_file;
+    "mktemp | xargs -I {} sh -c \"cat %s > {}; echo 'print(%s)' >> {} && %s {}\" > %s"
+    file_name thing_to_print python tmp_file;
   let reader = open_in tmp_file in
   let rec loop () = Printf.printf "%s" (input_line reader) ; loop () in
   try loop () with _ -> close_in reader
@@ -47,7 +47,7 @@ let test_file (builtins, heap) file_name =
 let test_dir data dir =
   if Sys.is_directory dir then begin
     let files = Sys.readdir dir in
-    Array.iter (fun file -> test_file data (dir ^ Filename.dir_sep ^ file)) files;
+    Array.iter (fun file -> test_file data (dir ^ Filename.dir_sep ^ file) "/usr/bin/python") files;
   end
 
 let _ =
