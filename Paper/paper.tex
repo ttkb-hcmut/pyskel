@@ -514,6 +514,44 @@ type any_scope = | TotalScope total_scope
                  | PartialScope partial_scope
 \end{minted}
 
+\subsection{Scopes in Pyskel}
+Pyskel extends Monat's semantics with the previously described scopes.
+We now distinguish many types of scopes, each representing a mapping from identifiers to values, but with some special properties.
+
+First, we define a global scope, containing the top level functions and values.
+The global scope is unique and shared.
+It is part of the mutable state described Figure~\vref{fig:skelmonad}.
+\begin{minted}[custom lexer=true]{sk.py}
+type global_scope = map<addr>
+\end{minted}
+The global scope is store in the read-write state, first presented Figure~\vref{fig:skelmonad}.
+
+We then need a scope for functions, having the following properties:
+\begin{itemize}
+\item Function scopes can be shared for reading and writing,
+\item Upper scopes must be accessible,
+\item Local identifiers can be uninitialized.
+\end{itemize}
+
+The last point can be treated easily with a sum type isomorphic to \texttt{Maybe}.
+To share the scopes, we store them in a special heap.
+Thus, scopes are allocated and identified with \emph{scope identifiers}.
+Finally, the upper scope is stored in a special field in the scope type, forming a scope chain.
+The final type is defined as:
+\begin{minted}[custom lexer=true]{sk.py}
+type partial_addr = | LocalUndef | Value addr
+type partial_scope = (pscope_up: maybe<scope_id>, pmapping: map<partial_addr>)
+
+type scope_id = heap_addr<partial_scope>
+type scope_heap = heap<partial_scope>
+\end{minted}
+
+Python functions are modified to have one extra field: the scope they've been defined in.
+
+
+The scope itself does not contain enough information to make a simple read.
+The reason of that is that we do not know yet if a variable is local, global or nonlocal.
+This information can be computed with the function body: global and nonlocal variables are easily identified. Local variables are the remaining ones among the assigned variables\footnote{Some variables may be only read in the function body. These variables are not considered local.}.
 
 \section{Objects and Classes}\label{sec:objects}
 Python values are stored on the \emph{heap}.
