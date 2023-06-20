@@ -8,17 +8,17 @@ end
 
 module Spec (M:MONAD) = struct
   let map_empty = SMap.empty
-  let typeId = "type"
 
-  let functionId = "function"
-  let methodId = "method"
-  let listId = "list"
-  let tupleId = "tuple"
-  let notImplementedTypeId = "NotImplementedType"
-  let noneTypeId = "NoneType"
-  let strId = "str"
-  let intId = "int"
-  let boolId = "bool"
+  let type_id = "type"
+  let function_id = "function"
+  let method_id = "method"
+  let list_id = "list"
+  let tuple_id = "tuple"
+  let notImplementedType_id = "NotImplementedType"
+  let noneType_id = "NoneType"
+  let str_id = "str"
+  let int_id = "int"
+  let bool_id = "bool"
   let __init__ = "__init__"
 
   let internal_map_elem (s, m) =

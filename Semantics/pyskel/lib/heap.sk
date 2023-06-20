@@ -12,9 +12,9 @@ val addr_equal<a> ((left: heap_addr<a>), (right: heap_addr<a>)) : bool =
   let ib = internal_addr_equal<a> (left, right) in
   from_internal ib
 
-val heapAlloc<a> : (heap<a>, a) -> (heap_addr<a>, heap<a>)
-val heapRead<a> : (heap<a>, heap_addr<a>) -> (a, heap<a>)
-val heapWrite<a> : (heap<a>, heap_addr<a>, a) -> ((), heap<a>)
+val heap_alloc<a> : (heap<a>, a) -> (heap_addr<a>, heap<a>)
+val heap_read<a> : (heap<a>, heap_addr<a>) -> (a, heap<a>)
+val heap_write<a> : (heap<a>, heap_addr<a>, a) -> ((), heap<a>)
 
 val initialHeap<a> : heap<a>
 

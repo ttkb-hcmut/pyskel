@@ -67,16 +67,16 @@ type internal = | IntAdd
 
 (* Some strings needed by the interpreter *)
 (* Builtin classes *)
-val typeId : id
-val functionId : id
-val methodId : id
-val listId : id
-val tupleId : id
-val notImplementedTypeId : id
-val noneTypeId : id
-val strId : id
-val intId : id
-val boolId : id
+val type_id : id
+val function_id : id
+val method_id : id
+val list_id : id
+val tuple_id : id
+val notImplementedType_id : id
+val noneType_id : id
+val str_id : id
+val int_id : id
+val bool_id : id
 
 (* Exceptions *)
 val _BaseException : id
@@ -105,7 +105,7 @@ type builtins =
   , notImplemented: addr
   )
 
-val todoError : addr
+val todo_error : addr
 
 (** 3.2 Heap **)
 
@@ -139,12 +139,12 @@ type addr = heap_addr<(obj_n, obj_s)>
 type python_heap = heap<(obj_n, obj_s)>
 
 (* Specialize general functions for Python heap *)
-val pythonHeapAlloc : (python_heap, (obj_n, obj_s)) -> (addr, python_heap)
-  = heapAlloc<(obj_n, obj_s)>
-val pythonHeapRead : (python_heap, addr) -> ((obj_n, obj_s), python_heap)
-  = heapRead<(obj_n, obj_s)>
-val pythonHeapWrite : (python_heap, addr, (obj_n, obj_s)) -> ((), python_heap)
-  = heapWrite<(obj_n, obj_s)>
+val python_heap_alloc : (python_heap, (obj_n, obj_s)) -> (addr, python_heap)
+  = heap_alloc<(obj_n, obj_s)>
+val python_heap_read : (python_heap, addr) -> ((obj_n, obj_s), python_heap)
+  = heap_read<(obj_n, obj_s)>
+val python_heap_write : (python_heap, addr, (obj_n, obj_s)) -> ((), python_heap)
+  = heap_write<(obj_n, obj_s)>
 
 val addr_eq ((left: addr), (right: addr)) : bool =
   addr_equal<(obj_n, obj_s)> (left, right)
@@ -152,7 +152,7 @@ val addr_eq ((left: addr), (right: addr)) : bool =
 (** 3.3 Scopes *)
 (** Gobal scope is a mapping from identifiers to addresses *)
 type global_scope = map<addr>
-val emptyScope : map<addr> = map_empty<addr>
+val empty_scope : map<addr> = map_empty<addr>
 
 type partial<a> = | LocalUndef | Value a
 
@@ -166,12 +166,12 @@ type scope_id = heap_addr<any_scope>
 type scope_heap = heap<any_scope>
 
 (* Specialize general functions for scope heap *)
-val scopeHeapAlloc : (scope_heap, any_scope) -> (scope_id, scope_heap)
-  = heapAlloc<any_scope>
-val scopeHeapRead : (scope_heap, scope_id) -> (any_scope, scope_heap)
-  = heapRead<any_scope>
-val scopeHeapWrite : (scope_heap, scope_id, any_scope) -> ((), scope_heap)
-  = heapWrite<any_scope>
+val scope_heap_alloc : (scope_heap, any_scope) -> (scope_id, scope_heap)
+  = heap_alloc<any_scope>
+val scope_heap_read : (scope_heap, scope_id) -> (any_scope, scope_heap)
+  = heap_read<any_scope>
+val scope_heap_write : (scope_heap, scope_id, any_scope) -> ((), scope_heap)
+  = heap_write<any_scope>
 
 (** Return the scope_up of any scope *)
 val scope_up (a_scope: any_scope) : maybe<scope_id> =
@@ -278,10 +278,10 @@ val put (s: s) : m<()> =
 val modify (f: s -> s) : m<()> =
   \(_, s):(r, s) -> let s' = f s in (Cur<()> (), s')
 
-val setFlag<a> (f: flag) : m<a> =
+val set_flag<a> (f: flag) : m<a> =
   \(_, s):(r, s) -> (Flag<a> f, s)
 
-val catchFlag<a> ((m: m<a>), (f: flag -> m<a>)) : m<a> =
+val catch_flag<a> ((m: m<a>), (f: flag -> m<a>)) : m<a> =
   let s =@ get in
   let r =@ ask in
   let (res, s) = m (r, s) in
@@ -291,32 +291,32 @@ val catchFlag<a> ((m: m<a>), (f: flag -> m<a>)) : m<a> =
   | Flag flg -> f flg
   end
 
-binder ? = catchFlag
+binder ? = catch_flag
 
 (** 4.3 State-Dependant Monadic Function *)
 val ret (v : addr) : m<addr> = return<addr> v
 
 val alloc (v:(obj_n, obj_s)) : m<addr> =
   let s =@ get in
-  let (a, h') = pythonHeapAlloc (s.heap, v) in
+  let (a, h') = python_heap_alloc (s.heap, v) in
   let s' = s <- (heap = h') in
   put s' ;@
   ret a
 
 val read (a:addr) : m<(obj_n, obj_s)> =
   let s =@ get in
-  let (v, h') = pythonHeapRead (s.heap, a) in
+  let (v, h') = python_heap_read (s.heap, a) in
   let s' = s <- (heap = h') in
   put s' ;@
   return<(obj_n, obj_s)> v
 
 val write ((a:addr), (v:(obj_n, obj_s))) : m<()> =
   let s =@ get in
-  let (_, h') = pythonHeapWrite (s.heap, a, v) in
+  let (_, h') = python_heap_write (s.heap, a, v) in
   let s' = s <- (heap = h') in
   put s'
 
-val createPartialScopeHere (mapping: map<maybe<addr>>): m<partial_scope> =
+val create_partial_scope_here (mapping: map<maybe<addr>>): m<partial_scope> =
   let e =@ ask in
   let scope_up =
     match e.local_env with
@@ -326,7 +326,7 @@ val createPartialScopeHere (mapping: map<maybe<addr>>): m<partial_scope> =
     end in
   return<partial_scope> (pscope_up = scope_up, pmapping = mapping)
 
-val createTotalScopeHere (mapping: map<addr>): m<total_scope> =
+val create_total_scope_here (mapping: map<addr>): m<total_scope> =
   let e =@ ask in
   let scope_up =
     match e.local_env with
@@ -336,27 +336,27 @@ val createTotalScopeHere (mapping: map<addr>): m<total_scope> =
     end in
   return<total_scope> (tscope_up = scope_up, tmapping = mapping)
 
-val allocScope (v:any_scope) : m<scope_id> =
+val alloc_scope (v:any_scope) : m<scope_id> =
   let s =@ get in
-  let (a, sh') = scopeHeapAlloc (s.scope_heap, v) in
+  let (a, sh') = scope_heap_alloc (s.scope_heap, v) in
   let s' = s <- (scope_heap = sh') in
   put s' ;@
   return<scope_id> a
 
-val readScope (a:scope_id) : m<any_scope> =
+val read_scope (a:scope_id) : m<any_scope> =
   let s =@ get in
-  let (v, sh') = scopeHeapRead (s.scope_heap, a) in
+  let (v, sh') = scope_heap_read (s.scope_heap, a) in
   let s' = s <- (scope_heap = sh') in
   put s' ;@
   return<any_scope> v
 
-val writeScope ((a:scope_id), (v:any_scope)) : m<()> =
+val write_scope ((a:scope_id), (v:any_scope)) : m<()> =
   let s =@ get in
-  let (_, sh') = scopeHeapWrite (s.scope_heap, a, v) in
+  let (_, sh') = scope_heap_write (s.scope_heap, a, v) in
   let s' = s <- (scope_heap = sh') in
   put s'
 
-val deleteEnv (id: id) : m<()> =
+val delete_env (id: id) : m<()> =
   let s =@ get in
   let e' = map_del<addr> (id, s.global_scope) in
   let s' = s <- (global_scope = e') in
@@ -374,7 +374,7 @@ val find_global (id: id) : m<addr> =
   end
 
 val find_local ((id: id), (sid: scope_id)) : m<maybe<maybe<addr>>> =
-  let a_scope =@ readScope sid in
+  let a_scope =@ read_scope sid in
   match a_scope with
   | PartialScope scope ->
     let res = map_lookup<maybe<addr>> (id, scope.pmapping) in
@@ -391,7 +391,7 @@ val find_nonlocal' ((id: id), (sid: scope_id)) : m<maybe<maybe<addr>>> =
   let val_local =@ find_local (id, sid) in
   match val_local with
   | Nothing ->
-    let a_scope =@ readScope sid in
+    let a_scope =@ read_scope sid in
     let a_scope_up = scope_up a_scope in
     match a_scope_up with
     | Nothing -> return<maybe<maybe<addr>>> Nothing<maybe<addr>>
@@ -403,14 +403,14 @@ val find_nonlocal' ((id: id), (sid: scope_id)) : m<maybe<maybe<addr>>> =
   end
 
 val find_nonlocal ((id: id), (sid: scope_id)) : m<maybe<maybe<addr>>> =
-  let a_scope =@ readScope sid in
+  let a_scope =@ read_scope sid in
   let a_scope_up = scope_up a_scope in
   match a_scope_up with
   | Nothing -> return<maybe<maybe<addr>>> Nothing<maybe<addr>>
   | Just sup -> find_nonlocal' (id, sup)
   end
 
-val readEnv (id:id) : m<addr> =
+val read_env (id:id) : m<addr> =
   let r =@ ask in
   match r.local_env with
   | Globl -> (* We are in the global env, we just look for the variable in the global map *)
@@ -423,7 +423,7 @@ val readEnv (id:id) : m<addr> =
         match ma with
         | Nothing -> find_global id
         | Just (Just a) -> ret a
-        | Just Nothing -> setFlag<addr> (Exn todoError)
+        | Just Nothing -> set_flag<addr> (Exn todo_error)
         end
     (* Look in the right scope *)
     | Just Local ->
@@ -447,7 +447,7 @@ val readEnv (id:id) : m<addr> =
         match ma with
         | Nothing -> find_global id
         | Just Nothing -> raise_exn<addr> _NameError
-        (* | Just Nothing -> let _ = debug () in setFlag<addr> (Exn todoError) *)
+        (* | Just Nothing -> let _ = debug () in set_flag<addr> (Exn todo_error) *)
         | Just (Just a) -> ret a
         end
     (* Cannot happen, nothing is Local in classes *)
@@ -455,7 +455,7 @@ val readEnv (id:id) : m<addr> =
         let (Just a) =@ find_local (id, scope_id) in
         match a with
         | Just a -> ret a
-        | Nothing -> setFlag<addr> (Exn todoError)
+        | Nothing -> set_flag<addr> (Exn todo_error)
         end
     | Just NonLocal ->
         let Just (Just a) =@ find_nonlocal (id, scope_id) in
@@ -466,45 +466,45 @@ val readEnv (id:id) : m<addr> =
 
 (** 5.2 Write **)
 val write_local ((id: id), (a: addr), (sid: scope_id)) : m<()> =
-  let a_scope =@ readScope sid in
+  let a_scope =@ read_scope sid in
   match a_scope with
   | PartialScope scope ->
     let mem = map_elem<maybe<addr>> (id, scope.pmapping) in
     match mem with
-    | False -> setFlag<()> (Exn todoError)
+    | False -> set_flag<()> (Exn todo_error)
     | True ->
         let m' = map_insert<maybe<addr>> (id, (Just<addr> a), scope.pmapping) in
         let s' = scope <- (pmapping = m') in
-        writeScope (sid, PartialScope s')
+        write_scope (sid, PartialScope s')
     end
   | TotalScope scope ->
     let m' = map_insert<addr> (id, a, scope.tmapping) in
     let s' = scope <- (tmapping = m') in
-    writeScope (sid, TotalScope s')
+    write_scope (sid, TotalScope s')
   end
 
 val write_nonlocal' ((id: id), (a: addr), (sid: scope_id)) : m<()> =
-  let a_scope =@ readScope sid in
+  let a_scope =@ read_scope sid in
   let f =? write_local (id, a, sid) in
   match f with
   | Exn _ ->
     let a_scope_up = scope_up a_scope in
     match a_scope_up with
-    | Nothing -> setFlag<()> (Exn todoError)
+    | Nothing -> set_flag<()> (Exn todo_error)
     | Just sup -> write_nonlocal' (id, a, sup)
     end
-  | f -> setFlag<()> f
+  | f -> set_flag<()> f
   end
 
 val write_nonlocal ((id: id), (a: addr), (sid: scope_id)) : m<()> =
-  let a_scope =@ readScope sid in
+  let a_scope =@ read_scope sid in
   let a_scope_up = scope_up a_scope in
   match a_scope_up with
-  | Nothing -> setFlag<()> (Exn todoError)
+  | Nothing -> set_flag<()> (Exn todo_error)
   | Just sup -> write_nonlocal' (id, a, sup)
   end
 
-val writeEnv ((id: id), (a: addr)) : m<()> =
+val write_env ((id: id), (a: addr)) : m<()> =
   let s =@ get in
   let r =@ ask in
   match r.local_env with
@@ -517,7 +517,7 @@ val writeEnv ((id: id), (a: addr)) : m<()> =
     match scope_var with
       (* Not in scope => Error *)
     | Nothing ->
-      setFlag<()> (Exn todoError)
+      set_flag<()> (Exn todo_error)
       (* Local scope *)
     | Just Local ->
       write_local (id, a, scope_id)
@@ -555,12 +555,12 @@ val writeEnv ((id: id), (a: addr)) : m<()> =
 
 (*** 6. Interpreter Itself ***)
 (** 6.1 Inital State **)
-val initializedHeap (() : ()) : (r, python_heap) =
+val initialized_heap (() : ()) : (r, python_heap) =
   let h = initialHeap<(obj_n, obj_s)> in
-  let (true , h) = pythonHeapAlloc (h, (Bool True , Locked)) in
-  let (false, h) = pythonHeapAlloc (h, (Bool False, Locked)) in
-  let (none , h) = pythonHeapAlloc (h, (None      , Locked)) in
-  let (notImplemented, h) = pythonHeapAlloc (h, (NotImplemented, Locked)) in
+  let (true , h) = python_heap_alloc (h, (Bool True , Locked)) in
+  let (false, h) = python_heap_alloc (h, (Bool False, Locked)) in
+  let (none , h) = python_heap_alloc (h, (None      , Locked)) in
+  let (notImplemented, h) = python_heap_alloc (h, (NotImplemented, Locked)) in
   (( local_env = Globl
    , builtins = ( true = true
                 , false = false
@@ -627,10 +627,10 @@ val globals (ss: body) : list<id> =
 
 val declarations' (ss: body): m<map<addr>> =
   let sid =@ tscoped ss in
-  let a_scope =@ readScope sid in
+  let a_scope =@ read_scope sid in
   match a_scope with
   (* Not possible *)
-  | PartialScope _ -> setFlag<map<addr>> (Exn todoError)
+  | PartialScope _ -> set_flag<map<addr>> (Exn todo_error)
   | TotalScope scope ->
     return<map<addr>> scope.tmapping
   end
@@ -638,8 +638,8 @@ val declarations' (ss: body): m<map<addr>> =
 
 (** Run code in a fresh total scope *)
 val tscoped (body: body): m<scope_id> =
-  let empty_scope =@ createTotalScopeHere map_empty<addr> in
-  let sid =@ allocScope (TotalScope empty_scope) in
+  let empty_scope =@ create_total_scope_here map_empty<addr> in
+  let sid =@ alloc_scope (TotalScope empty_scope) in
 
   let non_locals = nonlocals body in
   let global_vars = globals body in
@@ -672,7 +672,7 @@ val eval_fun_call ((at_args: list<addr>), (a: list<id>), (loc: list<id>), (body:
     let f = \((m, (s, a)):(map<maybe<addr>>, (id, addr))) -> map_insert<maybe<addr>> (s, Just<addr> a, m) in
     foldl<(id, addr), map<maybe<addr>>> (f , locals_undef , args_with_values) in
   let inner_scope = (pscope_up = scope_up, pmapping = locals_with_args) in
-  let inner_scope_id =@ allocScope (PartialScope inner_scope) in
+  let inner_scope_id =@ alloc_scope (PartialScope inner_scope) in
 
   let non_locals = nonlocals body in
   let global_vars = globals body in
@@ -700,17 +700,17 @@ val eval_fun_call ((at_args: list<addr>), (a: list<id>), (loc: list<id>), (body:
   let flag =? localBodyEval in
   match flag with
   | Ret a -> return<addr> a
-  | f -> setFlag<addr> f
+  | f -> set_flag<addr> f
   end
 
 val raise<a> (at_exn : addr) : m<a> =
-  let baseException =@ readEnv _BaseException in
+  let baseException =@ read_env _BaseException in
   let is_exn =@ is_subclass_of (at_exn, baseException) in
   match is_exn with
   | True ->
     let at =@ eval_class_call (Nil<addr>, at_exn, map_empty<addr>) in
-    setFlag<a> (Exn at)
-  | False -> setFlag<a> (Exn at_exn)
+    set_flag<a> (Exn at)
+  | False -> set_flag<a> (Exn at_exn)
   end
 
 (** 6.4 Classes *)
@@ -718,17 +718,17 @@ val typeof (a: addr): m<addr> =
   let (objn, _) =@ read a in
   match objn with
   | Inst c         -> ret c
-  | Class _        -> readEnv typeId
-  | Fun _          -> readEnv functionId
-  | Method _       -> readEnv methodId
-  | List _         -> readEnv listId
-  | Tuple _        -> readEnv tupleId
-  | NotImplemented -> readEnv notImplementedTypeId
-  | None           -> readEnv noneTypeId
-  | String _       -> readEnv strId
-  | Int _          -> readEnv intId
-  | Bool _         -> readEnv boolId
-  | Internal _     -> readEnv functionId
+  | Class _        -> read_env type_id
+  | Fun _          -> read_env function_id
+  | Method _       -> read_env method_id
+  | List _         -> read_env list_id
+  | Tuple _        -> read_env tuple_id
+  | NotImplemented -> read_env notImplementedType_id
+  | None           -> read_env noneType_id
+  | String _       -> read_env str_id
+  | Int _          -> read_env int_id
+  | Bool _         -> read_env bool_id
+  | Internal _     -> read_env function_id
   end
 
 val eval_class_call ((at_args: list<addr>), (class: addr), (dict: map<addr>)): m<addr> =
@@ -745,7 +745,7 @@ val eval_class_call ((at_args: list<addr>), (class: addr), (dict: map<addr>)): m
        let new_args = Cons<addr> (self, at_args) in
        eval_fun_call (new_args, a, loc, body, scope_up);@
        return<()> ()
-    | _ -> setFlag<()> (Exn todoError)
+    | _ -> set_flag<()> (Exn todo_error)
     end
   end ;@
   ret self
@@ -763,7 +763,7 @@ val is_subclass_of ((at_child: addr), (at_super: addr)) : m<bool> =
       let bs =@ mapM<addr, bool> (is_subclass_of_super, c_supers) in
       let res = foldl<bool, bool> (or', False, bs) in
       return<bool> res
-    | _ -> setFlag<bool> (Exn todoError)
+    | _ -> set_flag<bool> (Exn todo_error)
     end
   end
 
@@ -823,11 +823,11 @@ val get_attribute ((at_e: addr), (attr: id)) : m<addr> =
       | Nil ->
         (* not in super classes, look in objs *)
         match objs with
-        | Locked -> setFlag<addr> (Exn todoError)
+        | Locked -> set_flag<addr> (Exn todo_error)
         | Fields map ->
           let get_field = map_lookup<addr> (attr, map) in
           match get_field with
-          | Nothing -> setFlag<addr> (Exn todoError)
+          | Nothing -> set_flag<addr> (Exn todo_error)
           | Just a -> ret a
           end
         end
@@ -835,7 +835,7 @@ val get_attribute ((at_e: addr), (attr: id)) : m<addr> =
     end
   | Inst c ->
     match objs with
-    | Locked ->setFlag<addr> (Exn todoError)
+    | Locked ->set_flag<addr> (Exn todo_error)
     | Fields map ->
       let get_field = map_lookup<addr> (attr, map) in
       match get_field with
@@ -855,18 +855,18 @@ val get_attribute ((at_e: addr), (attr: id)) : m<addr> =
       end
     end
   | Int _ ->
-    let class_int =@ readEnv intId in
+    let class_int =@ read_env int_id in
     let attr =@ get_attribute (class_int, attr) in
     let meth = Method (at_e, attr) in
     let at_meth =@ alloc (meth, Locked) in
     ret at_meth
-  | _ -> setFlag<addr> (Exn todoError)
+  | _ -> set_flag<addr> (Exn todo_error)
 end
 
 
 (** 6.5 Evaluation functions **)
 val raise_exn<a> (exn : id) : m<a> =
-  let at_exn =@ readEnv exn in
+  let at_exn =@ read_env exn in
   raise<a> at_exn
 
 val eval_stmts (ss: body) : m<()> =
@@ -882,7 +882,7 @@ val eval_stmt (s: stmt) : m<()> =
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.71 *)
   | SAssign (x, v) ->
     let addr =@ eval_expr v in
-    writeEnv (x, addr)
+    write_env (x, addr)
   | SAttrAssign (e, attr, v) ->
     (* write to objs *)
     let at_e =@ eval_expr e in
@@ -898,12 +898,12 @@ val eval_stmt (s: stmt) : m<()> =
          return<obj_s> (Fields new_fields)
       end in
     write (at_e, (objn, objs'))
-  | SDel id -> deleteEnv id
+  | SDel id -> delete_env id
   (* Return, raise the ret flag *)
   | SPass -> return<()> ()
   | SReturn e ->
     let addr =@ eval_expr e in
-    setFlag<()> (Ret addr)
+    set_flag<()> (Ret addr)
 
   | SRaise e ->
     let at_exn =@ eval_expr e in
@@ -912,7 +912,7 @@ val eval_stmt (s: stmt) : m<()> =
     let flag =? eval_stmts tbody in
     match flag with
     | Exn raised ->
-      let baseException =@ readEnv _BaseException in
+      let baseException =@ read_env _BaseException in
       let at_exn =@ eval_expr exn in
       let valid_exception =@ is_subclass_of (at_exn, baseException) in
       match valid_exception with
@@ -924,7 +924,7 @@ val eval_stmt (s: stmt) : m<()> =
         end
       | False -> raise_exn<()> _TypeError
       end
-    | flag -> setFlag<()> flag
+    | flag -> set_flag<()> flag
     end
 
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.115 *)
@@ -941,20 +941,20 @@ val eval_stmt (s: stmt) : m<()> =
       | Globl -> return<maybe<scope_id>> Nothing<scope_id>
       | InFun(_, sid) -> return<maybe<scope_id>> (Just<scope_id> sid)
       | InClass(_, sid) ->
-          let s =@ readScope sid in
+          let s =@ read_scope sid in
           let sup = scope_up s in
           return<maybe<scope_id>> sup
       end in
     let f = Fun(name, args, bodyLocals, body, scope_up) in
     let addr =@ alloc (f, Locked) in
-	  writeEnv (name, addr)
+	  write_env (name, addr)
   | SClassDef (name, args, kwargs, body) ->
     let dict =@ declarations' body in
     (* superclasses are in [args] *)
     let at_args =@ mapM<expr, addr> (eval_expr, args) in
-    let c = Class(name, at_args, typeId, dict) in
+    let c = Class(name, at_args, type_id, dict) in
     let addr =@ alloc (c, Locked) in
-    writeEnv (name, addr)
+    write_env (name, addr)
   (* nonlocal and global are not evaluated, since they are parsing time information *)
   | SNonlocal _ -> return<()> ()
   | SGlobal _ -> return<()> ()
@@ -974,7 +974,7 @@ val eval_call ((at_c: addr), (args: list<expr>)): m<addr> =
   | Internal internal ->
     let at_args =@ mapM<expr, addr> (eval_expr, args) in
     call_internal (internal, at_args)
-  | _ -> setFlag<addr> (Exn todoError)
+  | _ -> set_flag<addr> (Exn todo_error)
   end
 
 
@@ -986,7 +986,7 @@ val eval_expr (e: expr): m<addr> =
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.70 *)
   | Constant constant -> eval_constant constant
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.71 *)
-  | Name id -> readEnv id
+  | Name id -> read_env id
   | Addr a -> ret a
   | Attribute (e, attr) ->
      let at_e =@ eval_expr e in

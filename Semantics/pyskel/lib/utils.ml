@@ -228,8 +228,8 @@ let eval_file_with_prelude builtins heap contents =
   builtins, M.extract (fs (builtins, heap))
 
 let eval_file contents =
-  let (builtins, heap) = M.extract @@ initializedHeap () in
+  let (builtins, heap) = M.extract @@ initialized_heap () in
   eval_file_with_prelude builtins
-    { global_scope = emptyScope
+    { global_scope = empty_scope
     ; scope_heap = initialHeap
     ; heap = heap} contents
