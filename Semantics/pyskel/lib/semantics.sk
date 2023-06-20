@@ -690,14 +690,14 @@ val eval_fun_call ((at_args: list<addr>), (a: list<id>), (loc: list<id>), (body:
     r <- (local_env = local_env')
   in
 
-  let bodyEvaluation =
+  let body_evaluation =
     eval_stmts body ;@
     return<addr> r.builtins.none
   in
 
-  let localBodyEval = local<addr> (set_locals, bodyEvaluation) in
+  let local_body_eval = local<addr> (set_locals, body_evaluation) in
 
-  let flag =? localBodyEval in
+  let flag =? local_body_eval in
   match flag with
   | Ret a -> return<addr> a
   | f -> set_flag<addr> f
@@ -929,7 +929,7 @@ val eval_stmt (s: stmt) : m<()> =
 
   (* https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.115 *)
   | SFunctionDef (name, args, body) ->
-    let bodyLocals =
+    let body_locals =
       let loc = locals body in
       let non_locals = nonlocals body in
       let global_vars = globals body in
@@ -945,7 +945,7 @@ val eval_stmt (s: stmt) : m<()> =
           let sup = scope_up s in
           return<maybe<scope_id>> sup
       end in
-    let f = Fun(name, args, bodyLocals, body, scope_up) in
+    let f = Fun(name, args, body_locals, body, scope_up) in
     let addr =@ alloc (f, Locked) in
 	  write_env (name, addr)
   | SClassDef (name, args, kwargs, body) ->
