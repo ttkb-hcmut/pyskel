@@ -162,12 +162,12 @@ let translate_ast (m: Concrete.Module.t) : stmt list =
 module SMap = Map.Make(String)
 module IMap = Map.Make(Int)
 
-let rec show_dict (heap: (objN * objS) IMap.t) (dict: addr SMap.t) =
+let rec show_dict (heap: (obj_n * obj_s) IMap.t) (dict: addr SMap.t) =
   "{" ^ (Stdlib.String.concat ", "
          @@ Stdlib.List.map (fun (key, value) ->
              Printf.sprintf "%s = %s" key (show_objn heap @@ fst @@ IMap.find value heap))
          @@ SMap.bindings dict) ^ "}"
-and show_objn (heap: (objN * objS) IMap.t) (x: objN) =
+and show_objn (heap: (obj_n * obj_s) IMap.t) (x: obj_n) =
   match x with
   | Bool True -> "True"
   | Bool False -> "False"

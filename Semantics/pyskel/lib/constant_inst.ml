@@ -3,8 +3,8 @@ open Necromonads
 module IMap = Map.Make(Int)
 
 module type TYPE = sig
-  type pythonInt = int
-  type pythonString = string
+  type python_int = int
+  type python_string = string
 
   type env = unit
 end

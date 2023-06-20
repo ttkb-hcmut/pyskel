@@ -17,8 +17,8 @@ val debug : () -> ()
 (** Type of identifiers *)
 type id
 
-type pythonInt
-type pythonString
+type python_int
+type python_string
 type binop = | Add
 
 (* Python statement *)
@@ -47,8 +47,8 @@ type exn_handler = (expr, body)
 type constant =
   | CNone
   | CBool bool
-  | CInt pythonInt
-  | CString pythonString
+  | CInt python_int
+  | CString python_string
 
 type expr =
   | Constant constant
@@ -90,7 +90,7 @@ val _TypeError : id
 val __init__ : id
 
 (* Add two integers *)
-val internal_int_add : (pythonInt, pythonInt) -> pythonInt
+val internal_int_add : (python_int, python_int) -> python_int
 
 (** [op Add] is ["__add__"] *)
 val op : binop -> id
@@ -109,15 +109,15 @@ val todoError : addr
 
 (** 3.2 Heap **)
 
-(* The heap is a mapping from [addr] to pairs [objN, objS] *)
-(* [objN] and [objS] are runtime representation of python values *)
+(* The heap is a mapping from [addr] to pairs [obj_n, obj_s] *)
+(* [obj_n] and [obj_s] are runtime representation of python values *)
 (* See: https://rmonat.fr/data/pubs/2021/thesis_monat.pdf#figure.caption.65 *)
 
 (** Python object (nominal part) *)
-type objN =
-  | Int pythonInt
+type obj_n =
+  | Int python_int
   | Bool bool
-  | String pythonString
+  | String python_string
   | None
   | NotImplemented
   | List list<addr>
@@ -130,24 +130,24 @@ type objN =
   | Internal internal
 
 (** Structural part of an object *)
-type objS =
+type obj_s =
   | Locked
   | Fields map<addr>
 
 (** Heap addresses *)
-type addr = heap_addr<(objN, objS)>
-type pythonHeap = heap<(objN, objS)>
+type addr = heap_addr<(obj_n, obj_s)>
+type python_heap = heap<(obj_n, obj_s)>
 
 (* Specialize general functions for Python heap *)
-val pythonHeapAlloc : (pythonHeap, (objN, objS)) -> (addr, pythonHeap)
-  = heapAlloc<(objN, objS)>
-val pythonHeapRead : (pythonHeap, addr) -> ((objN, objS), pythonHeap)
-  = heapRead<(objN, objS)>
-val pythonHeapWrite : (pythonHeap, addr, (objN, objS)) -> ((), pythonHeap)
-  = heapWrite<(objN, objS)>
+val pythonHeapAlloc : (python_heap, (obj_n, obj_s)) -> (addr, python_heap)
+  = heapAlloc<(obj_n, obj_s)>
+val pythonHeapRead : (python_heap, addr) -> ((obj_n, obj_s), python_heap)
+  = heapRead<(obj_n, obj_s)>
+val pythonHeapWrite : (python_heap, addr, (obj_n, obj_s)) -> ((), python_heap)
+  = heapWrite<(obj_n, obj_s)>
 
 val addr_eq ((left: addr), (right: addr)) : bool =
-  addr_equal<(objN, objS)> (left, right)
+  addr_equal<(obj_n, obj_s)> (left, right)
 
 (** 3.3 Scopes *)
 (** Gobal scope is a mapping from identifiers to addresses *)
@@ -199,7 +199,7 @@ type flag =
 (*** 4 Interpreter's Monad ***)
 (** 4.1 Types *)
 type r = (local_env: env, builtins: builtins)
-type s = (global_scope: global_scope, heap: pythonHeap, scope_heap: scope_heap)
+type s = (global_scope: global_scope, heap: python_heap, scope_heap: scope_heap)
 type exn<a> =
   | Cur a (* A value of type a *)
   | Flag flag (* A special state *)
@@ -296,21 +296,21 @@ binder ? = catchFlag
 (** 4.3 State-Dependant Monadic Function *)
 val ret (v : addr) : m<addr> = return<addr> v
 
-val alloc (v:(objN, objS)) : m<addr> =
+val alloc (v:(obj_n, obj_s)) : m<addr> =
   let s =@ get in
   let (a, h') = pythonHeapAlloc (s.heap, v) in
   let s' = s <- (heap = h') in
   put s' ;@
   ret a
 
-val read (a:addr) : m<(objN, objS)> =
+val read (a:addr) : m<(obj_n, obj_s)> =
   let s =@ get in
   let (v, h') = pythonHeapRead (s.heap, a) in
   let s' = s <- (heap = h') in
   put s' ;@
-  return<(objN, objS)> v
+  return<(obj_n, obj_s)> v
 
-val write ((a:addr), (v:(objN, objS))) : m<()> =
+val write ((a:addr), (v:(obj_n, obj_s))) : m<()> =
   let s =@ get in
   let (_, h') = pythonHeapWrite (s.heap, a, v) in
   let s' = s <- (heap = h') in
@@ -555,8 +555,8 @@ val writeEnv ((id: id), (a: addr)) : m<()> =
 
 (*** 6. Interpreter Itself ***)
 (** 6.1 Inital State **)
-val initializedHeap (() : ()) : (r, pythonHeap) =
-  let h = initialHeap<(objN, objS)> in
+val initializedHeap (() : ()) : (r, python_heap) =
+  let h = initialHeap<(obj_n, obj_s)> in
   let (true , h) = pythonHeapAlloc (h, (Bool True , Locked)) in
   let (false, h) = pythonHeapAlloc (h, (Bool False, Locked)) in
   let (none , h) = pythonHeapAlloc (h, (None      , Locked)) in
@@ -892,10 +892,10 @@ val eval_stmt (s: stmt) : m<()> =
       match objs with
       | Locked ->
          (* Not possible to write in locked objs *)
-         raise_exn<objS> _AttributeError
+         raise_exn<obj_s> _AttributeError
       | Fields fields ->
          let new_fields = map_insert<addr> (attr, at_v, fields) in
-         return<objS> (Fields new_fields)
+         return<obj_s> (Fields new_fields)
       end in
     write (at_e, (objn, objs'))
   | SDel id -> deleteEnv id
