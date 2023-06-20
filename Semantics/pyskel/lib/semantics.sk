@@ -316,16 +316,6 @@ val write ((a:addr), (v:(obj_n, obj_s))) : m<()> =
   let s' = s <- (heap = h') in
   put s'
 
-val create_partial_scope_here (mapping: map<partial_addr>): m<partial_scope> =
-  let e =@ ask in
-  let scope_up =
-    match e.local_env with
-    | Globl -> Nothing<scope_id>
-    | InFun(_, sid) -> Just<scope_id> sid
-    | InClass(_, sid) -> sid
-    end in
-  return<partial_scope> (pscope_up = scope_up, pmapping = mapping)
-
 val create_total_scope_here (mapping: map<addr>): m<map<addr>> =
   return<map<addr>> mapping
 
@@ -433,7 +423,7 @@ val read_env (id:id) : m<addr> =
         match ma with
         | Nothing -> find_global id
         | Just (Value a) -> ret a
-        | Just LocalUndef -> set_flag<addr> (Exn todo_error)
+        | Just LocalUndef -> raise_exn<addr> _NameError
         end
     (* Look in the right scope *)
     | Just Local ->
@@ -484,6 +474,7 @@ val write_local ((id: id), (a: addr), (sid: scope_id)) : m<()> =
   let scope =@ read_scope sid in
   let mem = map_elem<partial_addr> (id, scope.pmapping) in
   match mem with
+  (* Cannot happen, only used by write_nonlocal' *)
   | False -> set_flag<()> (Exn todo_error)
   | True ->
       let m' = map_insert<partial_addr> (id, (Value a), scope.pmapping) in
@@ -498,6 +489,7 @@ val write_nonlocal' ((id: id), (a: addr), (sid: scope_id)) : m<()> =
   | Exn _ ->
     let a_scope_up = scope_up a_scope in
     match a_scope_up with
+    (* Nonlocal but not found: error at parsing time *)
     | Nothing -> set_flag<()> (Exn todo_error)
     | Just sup -> write_nonlocal' (id, a, sup)
     end
@@ -508,6 +500,7 @@ val write_nonlocal ((id: id), (a: addr), (sid: scope_id)) : m<()> =
   let a_scope =@ read_scope sid in
   let a_scope_up = scope_up a_scope in
   match a_scope_up with
+  (* Nonlocal but no scope up, error at parsing time *)
   | Nothing -> set_flag<()> (Exn todo_error)
   | Just sup -> write_nonlocal' (id, a, sup)
   end
@@ -523,7 +516,7 @@ val write_env ((id: id), (a: addr)) : m<()> =
   | InFun (e, scope_id) ->
     let scope_var = map_lookup<var_scope> (id, e) in
     match scope_var with
-      (* Not in scope => Error *)
+      (* Cannot happen, every local is in e *)
     | Nothing ->
       set_flag<()> (Exn todo_error)
       (* Local scope *)
@@ -737,7 +730,7 @@ val eval_class_call ((at_args: list<addr>), (class: addr), (dict: map<addr>)): m
        let new_args = Cons<addr> (self, at_args) in
        eval_fun_call (new_args, a, loc, body, scope_up);@
        return<()> ()
-    | _ -> set_flag<()> (Exn todo_error)
+    | _ -> raise_exn<()> _TypeError
     end
   end ;@
   ret self
@@ -755,7 +748,7 @@ val is_subclass_of ((at_child: addr), (at_super: addr)) : m<bool> =
       let bs =@ mapM<addr, bool> (is_subclass_of_super, c_supers) in
       let res = foldl<bool, bool> (or', False, bs) in
       return<bool> res
-    | _ -> set_flag<bool> (Exn todo_error)
+    | _ -> raise_exn<bool> _TypeError
     end
   end
 
@@ -815,11 +808,11 @@ val get_attribute ((at_e: addr), (attr: id)) : m<addr> =
       | Nil ->
         (* not in super classes, look in objs *)
         match objs with
-        | Locked -> set_flag<addr> (Exn todo_error)
+        | Locked -> raise_exn<addr> _AttributeError
         | Fields map ->
           let get_field = map_lookup<addr> (attr, map) in
           match get_field with
-          | Nothing -> set_flag<addr> (Exn todo_error)
+          | Nothing -> raise_exn<addr> _AttributeError
           | Just a -> ret a
           end
         end
@@ -827,7 +820,7 @@ val get_attribute ((at_e: addr), (attr: id)) : m<addr> =
     end
   | Inst c ->
     match objs with
-    | Locked ->set_flag<addr> (Exn todo_error)
+    | Locked -> raise_exn<addr> _AttributeError
     | Fields map ->
       let get_field = map_lookup<addr> (attr, map) in
       match get_field with
@@ -852,6 +845,7 @@ val get_attribute ((at_e: addr), (attr: id)) : m<addr> =
     let meth = Method (at_e, attr) in
     let at_meth =@ alloc (meth, Locked) in
     ret at_meth
+  (* This is not handled yet, see class int (just above) *)
   | _ -> set_flag<addr> (Exn todo_error)
 end
 
@@ -927,13 +921,7 @@ val eval_stmt (s: stmt) : m<()> =
       let global_vars = globals body in
       let tmp = remove<id>(eq<id>, non_locals, loc) in
       remove<id>(eq<id>, global_vars, tmp) in
-    let e =@ ask in
-    let scope_up =
-      match e.local_env with
-      | Globl -> Nothing<scope_id>
-      | InFun(_, sid) -> Just<scope_id> sid
-      | InClass(_, sid) -> sid
-      end in
+    let scope_up =@ get_scope_up () in
     let f = Fun(name, args, body_locals, body, scope_up) in
     let addr =@ alloc (f, Locked) in
 	  write_env (name, addr)
@@ -963,7 +951,7 @@ val eval_call ((at_c: addr), (args: list<expr>)): m<addr> =
   | Internal internal ->
     let at_args =@ mapM<expr, addr> (eval_expr, args) in
     call_internal (internal, at_args)
-  | _ -> set_flag<addr> (Exn todo_error)
+  | _ -> raise_exn<addr> _TypeError
   end
 
 
