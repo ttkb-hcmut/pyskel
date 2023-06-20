@@ -232,4 +232,5 @@ let eval_file contents =
   eval_file_with_prelude builtins
     { global_scope = empty_scope
     ; scope_heap = initialHeap
+    ; scope_stack = Nil
     ; heap = heap} contents
