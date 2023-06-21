@@ -416,7 +416,29 @@ cannot be the global scope.
 
 Note that the \texttt{global} and \texttt{local} keywords only matter for
 writing variables, and that they are syntactic constructs: the variable written
-by an assignment is statically known when parsing the program.
+by an assignment is statically known when parsing the program. However, with the
+exception of the global scope, scopes are created at run-time (for instance when
+calling a function), and they may persist after the function's completion.
+Consider the following code.
+\begin{minted}{python}
+def counter(init):
+  x = init
+  def reset():
+    nonlocal x
+    x = 0
+    print(x)
+  def incr():
+    nonlocal x
+    x = x + 1
+    print(x)
+  return(reset,incr)
+
+r,i = counter(5)
+i(); r(); i()
+\end{minted}
+After calling \texttt{counter}, the two returned functions share its scope as
+enclosing scope, where the nonlocal variable \texttt{x} is defined. The
+code thus prints \texttt{6}, \texttt{0}, then \texttt{1}.
 
 %\subsection{Scopes Management}
 %Scopes are not handled in Monat's thesis, we present an extension of the semantics allowing mutiple scopes in PySkel.
@@ -427,11 +449,13 @@ by an assignment is statically known when parsing the program.
 
 To summarize, the \emph{global scope} contains all the toplevel declarations, it is a mapping from variable names to heap addresses.
 The local variables of a function and its parameters are stored in the scope associated with the function.
-Functions may need to access upper scopes, especially in case of reads to non-local variables.
+Functions may need to access upper scopes, to read or write non-local variables.
 We depict this dependency as a tree of scope, as shown in Figure~\vref{fig:functionscope}.
-The dashed arrows do not correspond to a real link in the scope type, as the global scope is treated separately.
-In fact, the scopes the \texttt{incr} and \texttt{wrapper} functions do not have an upper scope.
-The arrow is drawn to make the scope hierarchy clear. The global scope can be accessed implicitly when reading a global variable (even if it is not used with the \texttt{global} keyword).
+The dashed arrows to the global scope are only followed when reading variables
+that are not defined locally.
+In fact, the scopes of the \texttt{incr} and \texttt{wrapper} functions do not
+have an upper scope. We show on the right of each scope the names that are
+defined in this scope.
 
 \begin{figure}[ht!]
   \begin{minipage}{0.35\textwidth}
@@ -468,20 +492,15 @@ def incr():
 \end{figure}
 
 Note that scopes are computed at parsing time: when a function is called, its local variable are allocated but not initialized yet.
-Thus, reading a not yet defined variable in a function definition will result in an \texttt{UnboundLocalError} instead of a classical \texttt{NameError}. This is illustrated figure~\vref{fig:unboundlocal}.
-
-\begin{figure}[ht!]
-  \centering
-  \begin{minipage}{0.5\textwidth}
-  \begin{minted}{python}
+Thus, reading an uninitialized variable in a function definition results in an
+\texttt{UnboundLocalError} instead of the \texttt{NameError} that occurs when a
+variable does not exists. This is illustrated by the following code.
+\begin{minted}{python}
 def f():
-  x = undef # raises NameError
-  x = y     # raises UnboundLocalError
-  y = 0     # because y is local to f
-  \end{minted}
-  \end{minipage}
-  \caption{\label{fig:unboundlocal}Program Throwing \texttt{UnboundLocalError}}
-\end{figure}
+  x = undef # raises NameError as undef does not exists
+  x = y     # raises UnboundLocalError because y is local to f but not yet bound
+  y = 0
+\end{minted}
 
 \subsection{Scopes in PySkel}
 PySkel extends Monat's semantics with the previously described scopes.
