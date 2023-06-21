@@ -135,7 +135,7 @@ formal semantics and interpreter are available online.\footnote{\url{https://git
 We first describe Skel, the language of Skeletal Semantics, and how it leverages
 monadic features to model complex effectful computations in its simple
 functional language while keeping readability. We shortly describe the features
-we need for Pyskel, a longer introduction to Skel and monads is available in~\cite{KhayamSchmitt2023}.
+we need for PySkel, a longer introduction to Skel and monads is available in~\cite{KhayamSchmitt2023}.
 
 \subsection{Skeletal Semantics}
 Consider the Python statement \texttt{x = \(e\)}.
@@ -219,7 +219,8 @@ type exn<a> =
 
 type s = ( heap: python_heap
          , global_scope: global_scope
-         , scope_heap: scope_heap
+         , scope_heap: scope_heap (* functions (shared) *)
+         , scope_stack: list<map<addr>> (* classes (not shared) *)
          )
 type r = ( local_env: env
          , builtins: builtins
@@ -418,7 +419,7 @@ writing variables, and that they are syntactic constructs: the variable written
 by an assignment is statically known when parsing the program.
 
 %\subsection{Scopes Management}
-%Scopes are not handled in Monat's thesis, we present an extension of the semantics allowing mutiple scopes in Pyskel.
+%Scopes are not handled in Monat's thesis, we present an extension of the semantics allowing mutiple scopes in PySkel.
 %In the semantics, there is a unique environment \(\mathcal E \overset{\text{def}}{=} \mathsf{Id} \rightharpoonup \mathsf{Addr} \cup \mathtt{LocalUndef}\).
 %The keywords \texttt{global} and \texttt{nonlocal} are not supported.
 %Undefined variables are detected at parsing time and illformed programs are not accepted.
@@ -482,8 +483,8 @@ def f():
   \caption{\label{fig:unboundlocal}Program Throwing \texttt{UnboundLocalError}}
 \end{figure}
 
-\subsection{Scopes in Pyskel}
-Pyskel extends Monat's semantics with the previously described scopes.
+\subsection{Scopes in PySkel}
+PySkel extends Monat's semantics with the previously described scopes.
 We now distinguish two types of scopes, each representing a mapping from identifiers to values, but with some special properties.
 
 First, we define a global scope, containing the top level functions and values.
@@ -571,7 +572,7 @@ To collect the fields of a given class, we need to evaluate its body.
 The local variables of the body are the fields.
 Classes' bodies are close to functions' ones, with \texttt{global} and \texttt{nonlocal} variables, so a first idea would be to allocate a fresh function scope and evaluate the body in it.
 The entries of the scope would be the fields of the class.
-We do something very similar in Pyskel, the only difference is the scope type: functions scopes are designed for functions and are not adapted to class evaluation.
+We do something very similar in PySkel, the only difference is the scope type: functions scopes are designed for functions and are not adapted to class evaluation.
 To understand the need of a new scope type, we must understand the differences between classes and functions.
 
 First classes variables cannot be unitiliazed, so we don't need partial maps and \texttt{LocalUndef}.
@@ -687,32 +688,42 @@ This state is computed from a prelude file containing the builtin classes (such 
 Python programs are parsed with the \texttt{pyre-ast} OCaml library and then translated to the PySkel AST.
 The whole code is available at the following url: \href{https://gitlab.inria.fr/skeletons/pyskel}{\url{https://gitlab.inria.fr/skeletons/pyskel}}.
 
-\subsection{Initial State}
+The unspecified part of PySkel is small.
+It is composed of primitive types (\texttt{bool}, \texttt{int}), functions that operate on these types, the heaps and a general string map.
+The implementation is 100 lines long, compared to 1200 lines of Skel.
+
+\subsection{Initial State and Internal Function}\label{sec:internal function}
 The evaluation of a Python program requires some initial state.
-This state must contains builtin object, functions that operates on this object and classes to organize the functions properly.
-This elements can be defined in multiple places:
-\begin{itemize}
-\item In the Skel semantics, \texttt{True} and \texttt{False} are two examples.
-\item In the OCaml implementation, if the term is let unspecified in the semantics.
-  This is the case for integer addition, since integers are not specified.
-\item In a prelude Python file, which contains the builtin classes.
-\end{itemize}
+This state must contain builtin objects, functions and classses.
 
-\subsection{Internal Function}\label{sec:internal function}
-As we have seen, some values can have unspecified types.
-Builtin functions that operates on unspecified types must have an unspecified part.
-In PySkel, we made the choice to keep the unspecified part as small as possible.
+As the organization of builtin functions are not really part of Python evaluation mechanism, we do not want to specify it in the semantics.
+Note that functions are defined in the semantics, but not organized in classes.
+For example, the addition of integers is written in the Skel file, but not linked to any \texttt{int} class or \texttt{__add__} method.
+Hence, we need a way to organize existing Skel code into classes from outside the semantics.
+
+This is done with a Python \emph{prelude} file, containing declaration of classes and methods.
+We provide a way to link Skel code with a reserved decorator\footnote{Decorators are a python feature, we are using them only for their syntax, they are ignored at parsing time.} \mintinline{python}{@pyskel_internal}.
+The writter of the prelude file must specify a token name (\mintinline{python}{"IntAdd"} in the example) to identify the corresponding code.
+We can understand this as ``when you try to call this function, call the Skel code associated to the \mintinline[custom lexer = true]{sk.py}{IntAdd} token instead''.
+\begin{figure}[ht]
+  \centering
+  \begin{minipage}{0.3\linewidth}
+    \begin{minted}{python}
+class int(object):
+    @pyskel_internal("IntAdd")
+    def __add__(self, other):
+        pass
+    \end{minted}
+  \end{minipage}
+\end{figure}
+
+Then, in the semantics, the \texttt{call_internal} function redirects the call to execute the desired code, as shown Figure~\vref{fig:call internal}
 
 
-For example, the addition on integers is let unspecified, but the checks (for types and the number of arguments) are written in Skel.
-To link Skel code to python function, we use a special decorator in the prelude file: \texttt{@pyskel\_internall("IntAdd")}.
-This means ``when you try to call this function, call the Skel code associated with the \texttt{IntAdd} token instead''.
-
-
-\begin{figure}
+\begin{figure}[ht]
   \centering
   \begin{minipage}{0.9\textwidth}
-\begin{minted}[custom lexer=true]{sk.py}
+    \begin{minted}[custom lexer=true]{sk.py}
 type internal = | IntAdd
 
 val call_internal ((internal : internal), (args : list<addr>)) : m<addr> =
@@ -734,19 +745,10 @@ val call_internal ((internal : internal), (args : list<addr>)) : m<addr> =
         raise_exn<addr> _TypeError
      end
   end
-\end{minted}
-And, in the prelude file:
-\begin{minted}{python}
-class int(object):
-    @pyskel_internal("IntAdd")
-    def __add__(self, other):
-        pass
-\end{minted}
+    \end{minted}
   \end{minipage}
-\caption{Internal Functions in PySkel}\label{fig:internal}
+  \caption{\label{fig:call internal}\texttt{call_internal} function in the Skel semantics}
 \end{figure}
-In practice, the semantics contains the code shown in Figure~\ref{fig:internal}.
-This successfully interpret programs that use the \texttt{+} operator on integers.
 
 \section{Related Work}\label{sec:related}
 There have been several proposals to formalize the semantics of Python. Monat gives a denotational
