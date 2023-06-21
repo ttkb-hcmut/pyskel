@@ -482,39 +482,6 @@ def f():
   \caption{\label{fig:unboundlocal}Program Throwing \texttt{UnboundLocalError}}
 \end{figure}
 
-\subsection{Scopes in PySkel}
-PySkel Scopes are by designed the exact representation of scope trees given Figure~\vref{fig:functionscope}.
-As it is possible to have multiple references to the same scope, we use a key-value mechanism to make the scopes mutable.
-
-We distinguish two scope types. One for functions body, which must handle \texttt{LocalUndef}, and one for classes body, which must not.
-Those two scope types are called \emph{partial} and \emph{total}.
-%\asi{you could say which scope is used where, putting a forward pointer if necessary}
-% TODO: classes and functions
-\begin{description}
-\item[Total scopes] are mapping from identifiers to heap addresses, they are represented by the following type:
-  \begin{minted}{python}
-type total_scope = (tscope_up: maybe<scope_id>, tmapping: map<addr>)
-  \end{minted}
-  The definition is straightforward, a total scope is a mapping and some optional scope.
-  The \texttt{tscope\_up} is used to look up nonlocal variables.
-\item[Partial scopes] can accept uninitialized values, we use an option type to represent this property:
-  \begin{minted}{python}
-type maybe<a> =
-  | Nothing
-  | Just a
-
-type partial_scope = (pscope_up: maybe<scope_id>, pmapping: map<maybe<addr>>)
-  \end{minted}
-\end{description}
-
-Note that scope identifiers are also useful for the tree structure of the scope.
-A partial scope can be linked from a total scope and vice versa.
-The connection between scope identifiers and scopes is done with a map of \texttt{any\_scope}:
-\begin{minted}{python}
-type any_scope = | TotalScope total_scope
-                 | PartialScope partial_scope
-\end{minted}
-
 \subsection{Scopes in Pyskel}
 Pyskel extends Monat's semantics with the previously described scopes.
 We now distinguish two types of scopes, each representing a mapping from identifiers to values, but with some special properties.
