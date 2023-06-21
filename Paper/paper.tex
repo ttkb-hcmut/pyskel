@@ -406,13 +406,16 @@ global, as shown in the third program. This programs prints \texttt{foo:1} and
 \texttt{global:1}, illustrating that the assignment in \texttt{foo} did change
 the global \texttt{x}.
 
-One trickier case is the fourth program.
-It is very close to the third one but with one little difference: the entire code is placed in a function (called \texttt{wrapper} in the example).
-To use the \texttt{x} variable defined in the \texttt{wrapper} function inside of \texttt{function}, we cannot use the \texttt{global} keyword, because \texttt{x} is not \texttt{global}.
-In this case, the \texttt{nonlocal} keyword is what we need.
-It uses the closest definition of \texttt{x} among the enclosing scopes.
-Like the second one, it displays two \texttt{1}. Note that \texttt{nonlocal}
-does not consider the global scope as an enclosing scope.
+Alternatively, a variable may refer to an enclosing scope that is not the global
+scope. This is illustrated in the fourth program, where \texttt{x} is local to
+the function \texttt{foo}. In the enclosed function \texttt{bar}, \texttt{x} is
+declared as \texttt{nonlocal}, which means it must be declared in an enclosing
+function. It does not have to be the immediately enclosing function, and it
+cannot be the global scope.
+
+Note that the \texttt{global} and \texttt{local} keywords only matter for
+writing variables, and that they are syntactic constructs: the variable written
+by an assignment is statically known when parsing the program.
 
 %\subsection{Scopes Management}
 %Scopes are not handled in Monat's thesis, we present an extension of the semantics allowing mutiple scopes in Pyskel.
@@ -423,8 +426,6 @@ does not consider the global scope as an enclosing scope.
 
 To summarize, the \emph{global scope} contains all the toplevel declarations, it is a mapping from variable names to heap addresses.
 The local variables of a function and its parameters are stored in the scope associated with the function.
-
-
 Functions may need to access upper scopes, especially in case of reads to non-local variables.
 We depict this dependency as a tree of scope, as shown in Figure~\vref{fig:functionscope}.
 The dashed arrows do not correspond to a real link in the scope type, as the global scope is treated separately.
