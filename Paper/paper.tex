@@ -516,28 +516,19 @@ type any_scope = | TotalScope total_scope
 
 \subsection{Scopes in Pyskel}
 Pyskel extends Monat's semantics with the previously described scopes.
-We now distinguish many types of scopes, each representing a mapping from identifiers to values, but with some special properties.
+We now distinguish two types of scopes, each representing a mapping from identifiers to values, but with some special properties.
 
 First, we define a global scope, containing the top level functions and values.
-The global scope is unique and shared.
+The global scope is unique and shared, with a simple structure.
+In skel, it is define as \mintinline[custom lexer=true]{sk.py}{type global_scope = map<addr>}.
 It is part of the mutable state described Figure~\vref{fig:skelmonad}.
-\begin{minted}[custom lexer=true]{sk.py}
-type global_scope = map<addr>
-\end{minted}
-The global scope is store in the read-write state, first presented Figure~\vref{fig:skelmonad}.
 
-We then need a scope for functions, having the following properties:
-\begin{itemize}
-\item Function scopes can be shared for reading and writing,
-\item Upper scopes must be accessible,
-\item Local identifiers can be uninitialized.
-\end{itemize}
-
-The last point can be treated easily with a sum type isomorphic to \texttt{Maybe}.
-To share the scopes, we store them in a special heap.
-Thus, scopes are allocated and identified with \emph{scope identifiers}.
-Finally, the upper scope is stored in a special field in the scope type, forming a scope chain.
-The final type is defined as:
+Then, we need a scope type for functions.
+As these scopes must be able to store uninitialized values, we define a \texttt{partial_addr} type, isomorphic to Haskell's well-known \texttt{Maybe} type, with a \mintinline[custom lexer = true]{sk.py}{LocalUndef} constructor.
+In addition, function scopes can be shared and access upper scopes.
+To do this, we define a special heap for scopes, so scopes are allocated and referenced with \emph{scope identifiers}.
+We then just need to store the identifier of the upper scope with a map of \mintinline[custom lexer = true]{sk.py}{partial_addr} to have a function scope.
+The final type is presented below:
 \begin{minted}[custom lexer=true]{sk.py}
 type partial_addr = | LocalUndef | Value addr
 type partial_scope = (pscope_up: maybe<scope_id>, pmapping: map<partial_addr>)
@@ -546,12 +537,28 @@ type scope_id = heap_addr<partial_scope>
 type scope_heap = heap<partial_scope>
 \end{minted}
 
-Python functions are modified to have one extra field: the scope they've been defined in.
+
+Once function scopes are defined, we must modify the heap representation of functions to add a scope identifier: the scope in which the function has been defined.
+This is done by adding a field to the \texttt{Fun} constructor of the \texttt{obj_n} type.
 
 
 The scope itself does not contain enough information to make a simple read.
 The reason of that is that we do not know yet if a variable is local, global or nonlocal.
-This information can be computed with the function body: global and nonlocal variables are easily identified. Local variables are the remaining ones among the assigned variables\footnote{Some variables may be only read in the function body. These variables are not considered local.}.
+This information can be computed with the function body: global and nonlocal variables are easily identified.
+Local variables are the remaining ones among the assigned variables\footnote{Some variables may be only read in the function body.
+These variables are not considered local.}.
+It's represented as a mapping from identifiers to \mintinline[custom lexer = true]{sk.py}{type var_scope = Local | Nonlocal | Global}.
+
+
+To summarize, a function call will perform the following:
+\begin{itemize}
+\item Allocate a fresh scope,
+\item Set its upper scope to the scope stored in the \texttt{Fun} object,
+\item Evaluate the arguments and add them to the scope,
+\item Add LocalUndef for local variables,
+\item Build the \texttt{var_scope} map,
+\item Eval the body in the new scope.
+\end{itemize}
 
 \section{Objects and Classes}\label{sec:objects}
 Python values are stored on the \emph{heap}.
