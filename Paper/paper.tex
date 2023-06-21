@@ -598,6 +598,41 @@ This evaluation is performed in a new total scope, which directly builds the cla
 Some precautions must be taken when evaluating a class. In particular, a function defined inside the class body does not have access to the other fields of the class.
 The upper scope of the function is in fact the upper scope of the class and not the class itself.
 
+\subsection{Collect the Fields of a Class}
+To collect the fields of a given class, we need to evaluate its body.
+The local variables of the body are the fields.
+Classes' bodies are close to functions' ones, with \texttt{global} and \texttt{nonlocal} variables, so a first idea would be to allocate a fresh function scope and evaluate the body in it.
+The entries of the scope would be the fields of the class.
+We do something very similar in Pyskel, the only difference is the scope type: functions scopes are designed for functions and are not adapted to class evaluation.
+To understand the need of a new scope type, we must understand the differences between classes and functions.
+
+First classes variables cannot be unitiliazed, so we don't need partial maps and \texttt{LocalUndef}.
+Then, fields exist only in the class, they are not accessible in subfunctions or subclasses, so the scope chain need to bypass classes.
+Finally, classes scopes cannot be shared and modified by others, so we do not need to store them on the heap.
+
+So we need a simple address map, like the global scope, with some upper scope for nonlocal variables.
+In case of nested classes, we may need to pause the current class scope to evaluate the subclass.
+This is why we have a \texttt{scope_stack} in the mutable state.
+At any point of the program, the length of the stack corresponds the number of classes we entered to reach the program point.
+Once the body of the class is fully evaluated, we pop the scope from the stack and we directly have the expected dictionary.
+
+The final \texttt{env} type is given below.
+It tells us if we are at toplevel, evaluating a function (giving the current scope) or evaluating a class (giving the upper scope since the current scope is at the top of the stack).
+This information is used by the \texttt{read_env} function to find the address of a given identifier.
+\begin{figure}[h]
+  \centering
+  \begin{minipage}{0.55\linewidth}
+    \begin{minted}[custom lexer = true]{sk.py}
+type env =
+  | Globl
+    (* var_scope and current scope *)
+  | InFun (map<var_scope>, scope_id)
+    (* var_scope and scope_up *)
+  | InClass (map<var_scope>, maybe<scope_id>)
+    \end{minted}
+  \end{minipage}
+\end{figure}
+
 \subsection{Instances}
 To create an instance of some class in Python, we call the class like a function: \texttt{Example()}.
 This will create a reference to the class called.
