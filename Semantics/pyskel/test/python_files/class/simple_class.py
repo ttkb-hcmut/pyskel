@@ -2,7 +2,7 @@
 
 class __result__:
     x = 0
-    y = 1
+    y = x
 
     def foo():
         x = 42

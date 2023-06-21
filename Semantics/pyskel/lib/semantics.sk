@@ -181,7 +181,7 @@ type env =
   | Globl
     (* var_scope and current scope *)
   | InFun (map<var_scope>, scope_id)
-    (* car_scope and scope_up ! *)
+    (* var_scope and scope_up ! *)
   | InClass (map<var_scope>, maybe<scope_id>)
 
 (** 3.5 Control-Flow Status **)
