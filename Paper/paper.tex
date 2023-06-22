@@ -405,9 +405,24 @@ state the scope of the variable to modify before any assignment, so that this
 assignment does not declare the variable. One may state that a variable is
 global, as shown in the third program. This programs prints \texttt{foo:1} and
 \texttt{global:1}, illustrating that the assignment in \texttt{foo} did change
-the global \texttt{x}.
+the global \texttt{x}. Note that the global annotation for a variable also
+impacts how it is read. The following code for instance outputs \texttt{3}.
+Indeed, as \texttt{x} is not defined in \texttt{baz}, it is looked up in
+\texttt{bar}, where it is said to be global.
+\begin{minted}{python}
+x = 3
+def foo():
+    x = 1
+    def bar():
+        global x
+        def baz():
+            print(x)
+        baz()
+    bar()
+foo()
+\end{minted}
 
-Alternatively, a variable may refer to an enclosing scope that is not the global
+Alternatively, a variable assignment may refer to an enclosing scope that is not the global
 scope. This is illustrated in the fourth program, where \texttt{x} is local to
 the function \texttt{foo}. In the enclosed function \texttt{bar}, \texttt{x} is
 declared as \texttt{nonlocal}, which means it must be declared in an enclosing
@@ -508,24 +523,29 @@ We now distinguish two types of scopes, each representing a mapping from identif
 
 First, we define a global scope, containing the top level functions and values.
 The global scope is unique and shared, with a simple structure.
-In Skel, it is defined as \mintinline[custom lexer=true]{sk.py}{type global_scope = map<addr>}.
+In Skel, it is defined as \mintinline[custom
+lexer=true]{sk.py}{type global_scope = map<addr>}, i.e., a mapping from strings
+to adresses (see below).
 It is part of the mutable state described Figure~\vref{fig:skelmonad}.
 
-Then, we need a scope type for functions.
-As these scopes must be able to store uninitialized values, we define a \texttt{partial_addr} type, isomorphic to Haskell's well-known \texttt{Maybe} type\footnote{We could use the \texttt{maybe} type, but we defined a new one to clarify the code.}, with a \mintinline[custom lexer = true]{sk.py}{LocalUndef} constructor.
-
+We next introduce the type of function scopes.
+As these scopes may contain uninitialized values, we define a
+\texttt{partial_addr} type, isomorphic to Haskell's well-known \texttt{Maybe}
+type\footnote{We could also use the \texttt{maybe} type, but we define a new one to clarify the code.}, with a \mintinline[custom lexer = true]{sk.py}{LocalUndef} constructor.
 In addition, function scopes can be shared and access upper scopes.
-To do this, we define a special heap for scopes, so scopes are allocated and referenced with \emph{scope identifiers}.
-We then just need to store the identifier of the upper scope with a map of \mintinline[custom lexer = true]{sk.py}{partial_addr} to have a function scope.
-The final type is presented below:
+To do this, we define an additional heap for scopes, so scopes are allocated and
+referenced with \emph{scope identifiers}. A function scope is thus a pair of an
+optional identifier for the enclosing scope and a map from strings to
+\mintinline[custom lexer = true]{sk.py}{partial_addr} for the scope contents.
+The final type is presented below.
 %\asi{define maybe and map, explain why you don't use maybe for partial\_addr.
 %  Also define the polymorphic types heap\_addr and heap, especially since the
 %  heap of Fig 1 is not polymorphic.}
 \begin{minted}[custom lexer=true]{sk.py}
-type heap<_> (* Unspecified heap, containing values of any type *)
+type heap<_> (* Unspecified heap, heap<a> contains values of type a *)
 type heap_addr<_> (* heap_addr<a> are the addresses of heap<a> *)
 
-type map<_> (* Unspecified map from string to any type *)
+type map<_> (* Unspecified map, map<a> is a mapping from strings to a *)
 type maybe<a> = | Nothing | Just a
 
 type partial_addr = | LocalUndef | Value addr
@@ -536,32 +556,32 @@ type scope_heap = heap<partial_scope>
 \end{minted}
 
 
-Note that the \texttt{heap} type is parameterized, and the one presented Figure~\vref{fig:simpleskel} is not.
-So we need to specify the type argument to obtain the main Python heap.
-These type is the representation of Python values on the heap.
+Note that the \texttt{heap} type is parameterized while the one presented Figure~\vref{fig:simpleskel} is not.
+We thus need to specify the type of values stored in the main Python heap.
 It is well described in Monat's semantics (the two sets \textsf{ObjN} and \textsf{ObjS}), and can be translated straight to Skel.
 Heap values are composed of two elements, respectively of type \texttt{obj_n} and \texttt{obj_s}.
 The \texttt{obj_n} type represents the different kinds of values (\mintinline[custom lexer = true]{sk.py}{Int}, \mintinline[custom lexer = true]{sk.py}{String}, \mintinline[custom lexer = true]{sk.py}{Fun (..)}, etc).
 The \texttt{obj_s} part is a dictionary containing the fields of a value.
-We can define the \texttt{heap} type like so:
+We thus define the \texttt{heap} type as follows.
 \begin{minted}[custom lexer = true]{sk.py}
-type obj_n = | Int python_int | String pythong_string | ...
+type obj_n = | Int python_int | String python_string | ...
 type obj_s = | Locked | Fields map<addr>
 
 type addr = heap_addr<(obj_n, obj_s)>
 type python_heap = heap<(obj_n, obj_s)>
 \end{minted}
-Since we added scopes to the semantics, the \texttt{obj_n} type must be modified in order to add a \texttt{scope} field to the \mintinline[custom lexer = true]{sk.py}{Fun} constructor: the scope in which the function has been defined.
-%\asi{first mention of obj\_n}
+The \texttt{obj_n} type includes a constructor \skinl{Fun} for functions, this
+constructor includes a \texttt{scopes} field indicating the scope where the
+function has been defined.
 
-Now, the identifiers are well organized in the scope structure.
-But The scope itself does not contain enough information to make a simple read.
-The reason of that is that we do not know yet if a variable is local, global, or nonlocal.
-This information can be computed with the function body: global and nonlocal variables are easily identified.
-Local variables are the remaining ones among the assigned variables\footnote{Some variables may be only read in the function body.
-These variables are not considered local.}.
-It's represented as a mapping from identifiers to \mintinline[custom lexer = true]{sk.py}{type var_scope = Local | Nonlocal | Global}.
-
+Identifiers are well organized in the scope structure, but to execute a
+variable assignment, one should know in which scope to look for it (i.e., is the
+variable local, global, or nonlocal). To this end, a function includes a map
+from variable names
+to \mintinline[custom lexer =
+true]{sk.py}{type var_scope = Local | Nonlocal | Global}. This map is built as
+follows: global and nonlocal variables are explicitly given, and the remaining
+assignments are local variable declarations.
 
 To summarize, a function call will perform the following:
 \begin{enumerate}
