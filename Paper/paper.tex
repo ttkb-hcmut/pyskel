@@ -512,15 +512,22 @@ In skel, it is defined as \mintinline[custom lexer=true]{sk.py}{type global_scop
 It is part of the mutable state described Figure~\vref{fig:skelmonad}.
 
 Then, we need a scope type for functions.
-As these scopes must be able to store uninitialized values, we define a \texttt{partial_addr} type, isomorphic to Haskell's well-known \texttt{Maybe} type, with a \mintinline[custom lexer = true]{sk.py}{LocalUndef} constructor.
+As these scopes must be able to store uninitialized values, we define a \texttt{partial_addr} type, isomorphic to Haskell's well-known \texttt{Maybe} type\footnote{We could use the \texttt{maybe} type, but we defined a new one to clarify the code.}, with a \mintinline[custom lexer = true]{sk.py}{LocalUndef} constructor.
+
 In addition, function scopes can be shared and access upper scopes.
 To do this, we define a special heap for scopes, so scopes are allocated and referenced with \emph{scope identifiers}.
 We then just need to store the identifier of the upper scope with a map of \mintinline[custom lexer = true]{sk.py}{partial_addr} to have a function scope.
 The final type is presented below:
-\asi{define maybe and map, explain why you don't use maybe for partial\_addr.
-  Also define the polymorphic types heap\_addr and heap, especially since the
-  heap of Fig 1 is not polymorphic.}
+%\asi{define maybe and map, explain why you don't use maybe for partial\_addr.
+%  Also define the polymorphic types heap\_addr and heap, especially since the
+%  heap of Fig 1 is not polymorphic.}
 \begin{minted}[custom lexer=true]{sk.py}
+type heap<_> (* Unspecified heap, containing values of any type *)
+type heap_addr<_> (* heap_addr<a> are the addresses of heap<a> *)
+
+type map<_> (* Unspecified map from string to any type *)
+type maybe<a> = | Nothing | Just a
+
 type partial_addr = | LocalUndef | Value addr
 type partial_scope = (pscope_up: maybe<scope_id>, pmapping: map<partial_addr>)
 
@@ -529,12 +536,26 @@ type scope_heap = heap<partial_scope>
 \end{minted}
 
 
-Once function scopes are defined, we must modify the heap representation of functions to add a scope identifier: the scope in which the function has been defined.
-This is done by adding a field to the \texttt{Fun} constructor of the \texttt{obj_n} type.
-\asi{first mention of obj\_n}
+Note that the \texttt{heap} type is parameterized, and the one presented Figure~\vref{fig:simpleskel} is not.
+So we need to specify the type argument to obtain the main Python heap.
+These type is the representation of Python values on the heap.
+It is well described in Monat's semantics (the two sets \textsf{ObjN} and \textsf{ObjS}), and can be translated straight to Skel.
+Heap values are composed of two elements, respectively of type \texttt{obj_n} and \texttt{obj_s}.
+The \texttt{obj_n} type represents the different kinds of values (\mintinline[custom lexer = true]{sk.py}{Int}, \mintinline[custom lexer = true]{sk.py}{String}, \mintinline[custom lexer = true]{sk.py}{Fun (..)}, etc).
+The \texttt{obj_s} part is a dictionary containing the fields of a value.
+We can define the \texttt{heap} type like so:
+\begin{minted}[custom lexer = true]{sk.py}
+type obj_n = | Int python_int | String pythong_string | ...
+type obj_s = | Locked | Fields map<addr>
 
+type addr = heap_addr<(obj_n, obj_s)>
+type python_heap = heap<(obj_n, obj_s)>
+\end{minted}
+Since we added scopes to the semantics, the \texttt{obj_n} type must be modified in order to add a \texttt{scope} field to the \mintinline[custom lexer = true]{sk.py}{Fun} constructor: the scope in which the function has been defined.
+%\asi{first mention of obj\_n}
 
-The scope itself does not contain enough information to make a simple read.
+Now, the identifiers are well organized in the scope structure.
+But The scope itself does not contain enough information to make a simple read.
 The reason of that is that we do not know yet if a variable is local, global, or nonlocal.
 This information can be computed with the function body: global and nonlocal variables are easily identified.
 Local variables are the remaining ones among the assigned variables\footnote{Some variables may be only read in the function body.
@@ -544,12 +565,12 @@ It's represented as a mapping from identifiers to \mintinline[custom lexer = tru
 
 To summarize, a function call will perform the following:
 \begin{enumerate}
-\item allocate a fresh scope,
-\item set its upper scope to the scope stored in the \texttt{Fun} object,
-\item evaluate the arguments and add them to the scope,
-\item add LocalUndef for local variables,
-\item build the \texttt{var_scope} map,
-\item evaluate the body in the new scope.
+\item Allocate a fresh scope,
+\item Set its upper scope to the scope stored in the \texttt{Fun} object,
+\item Evaluate the arguments and add them to the scope,
+\item Add LocalUndef for local variables,
+\item Build the \texttt{var_scope} map,
+\item Evaluate the body in the new scope.
 \end{enumerate}
 
 \section{Objects and Classes}\label{sec:objects}
