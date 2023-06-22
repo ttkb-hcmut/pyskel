@@ -117,7 +117,7 @@ that distinguish such a description from a usual interpreter. First, Skel allows
 for partial and non-deterministic programs with the \skinl{branch} construct.
 Next, it is not necessary to specify everything: some types or functions may be
 left unspecified, either because they are not crucial to the description of the
-language, because they are implementation dependent, or because they will be
+language, because they are implementation dependent, or because they are
 specified later in an incremental definition. Finally, Skel is a
 \emph{syntax} to describe semantics. It is kept as simple as possible to be used
 with many tools, such as an OCaml interpreter generator, a debugger, or a Coq
@@ -146,7 +146,7 @@ A first version of this program is represented in Figure~\vref{fig:simpleskel}.
 In this example, we start by declaring types.
 Some of them are unspecified (they do not have a definition): \skinl{addr},
 \skinl{heap}, \skinl{env}, and \skinl{expr}. The first three are
-considered implementation-dependent, the \skinl{expr} type for expressions will be
+considered implementation-dependent, the \skinl{expr} type for expressions is
 specified later.
 The \skinl{stmt} type is specified as a data type with a single
 constructor. It depends on unspecified types.
@@ -583,7 +583,7 @@ true]{sk.py}{type var_scope = Local | Nonlocal | Global}. This map is built as
 follows: global and nonlocal variables are explicitly given, and the remaining
 assignments are local variable declarations.
 
-To summarize, a function call will perform the following:
+To summarize, a function call performs the following:
 \begin{enumerate}
 \item Allocate a fresh scope,
 \item Set its upper scope to the scope stored in the \texttt{Fun} object,
@@ -595,8 +595,8 @@ To summarize, a function call will perform the following:
 
 \section{Objects and Classes}\label{sec:objects}
 Python values are stored on the \emph{heap}.
-Formally, the heap is a mapping from addresses to Python objects, such as constants (integers, strings, booleans, \dots), functions, methods, classes and instances.
-We describe in this section the Object-Oriented features of Python and the Skel implementation.
+Formally, the heap is a mapping from addresses to Python objects, such as constants (integers, strings, booleans, \dots), functions, methods, classes, and instances.
+We describe in this section the object-oriented features of Python and the Skel implementation.
 
 \subsection{Classes}
 A class defines a new \emph{type}, it consists of a set of \emph{fields}, declared in the class body.
@@ -626,10 +626,11 @@ class Example:
 
 In Skel, classes are represented by a map from identifiers to addresses and by the list of its super classes.
 To collect the fields of a class, we first need to evaluate its body.
-This evaluation is performed in a new total scope, which directly builds the class dictionary.
+This evaluation is performed in a new total (see below) scope, which directly builds the class dictionary.
 
 Some precautions must be taken when evaluating a class. In particular, a function defined inside the class body does not have access to the other fields of the class.
 The upper scope of the function is in fact the upper scope of the class and not the class itself.
+\asi{Give an example}
 
 \subsection{Collect the Fields of a Class}
 To collect the fields of a given class, we need to evaluate its body.
@@ -639,7 +640,7 @@ The entries of the scope would be the fields of the class.
 We do something very similar in PySkel, the only difference is the scope type: functions scopes are designed for functions and are not adapted to class evaluation.
 To understand the need of a new scope type, we must understand the differences between classes and functions.
 
-First classes variables cannot be unitiliazed, so we don't need partial maps and \texttt{LocalUndef}.
+First classes variables cannot be uninitialized, so we don't need partial maps and \texttt{LocalUndef}.
 Then, fields exist only in the class, they are not accessible in subfunctions or subclasses, so the scope chain need to bypass classes.
 Finally, classes scopes cannot be shared and modified by others, so we do not need to store them on the heap.
 
@@ -668,13 +669,13 @@ type env =
 
 \subsection{Instances}
 To create an instance of some class in Python, we call the class like a function: \texttt{Example()}.
-This will create a reference to the class called.
+This creates a reference to the class called.
 Instances shares the attributes of the superclass, they can access them with the dot operator: \texttt{Example().value}.
 This operator can have some side effects.
-In particular, if an instance accesses a function of its class, a new \emph{method} will be allocated and returned instead of the funcion.
-This method will contain two addresses: the instances and the function.
-Thus, the method call will simply pass the instance as first parameter to the function.
-The given instance will be modified according to the function body defined in the class.
+In particular, if an instance accesses a function of its class, a new \emph{method} is allocated and returned instead of the function.
+This method contains two addresses: the instance and the function.
+Thus, the method call simply passes the instance as first parameter to the function.
+The given instance is modified according to the function body defined in the class.
 This mechanism is illustrated Figure~\vref{fig:method}.
 
 %\asi{say this is how late binding is implemented}
@@ -691,7 +692,7 @@ instance = Example()
 
 Example.method # is a function
 instance.method # is a method, referencing `instance` and `Example.method`
-instance.method(2) # is the nearly the same as
+instance.method(2) # is nearly the same as
 Example.method(instance, 2) # "nearly" because no method is allocated here
     \end{minted}
   \end{minipage}
@@ -699,9 +700,10 @@ Example.method(instance, 2) # "nearly" because no method is allocated here
 \end{figure}
 
 
-As you can see, instances can have additional fields that are not part of the class (\texttt{x} in the example).
-Those fields are store on the heap, next to the object they belong to.
-In PySkel, the heap maps integers to pairs. One field is for the object itself, the other is for it's dynamic dictionary.
+As can be seen, instances can have additional fields that are not part of the class (\texttt{x} in the example).
+Those fields are stored on the heap, next to the object they belong to.
+In PySkel, objects in the heap are pairs: one field is for the object itself
+while the other is for its dynamic dictionary of instance variables.
 
 \section{Deriving an Interpreter}\label{sec:interp}
 \subsection{Project Structure}
