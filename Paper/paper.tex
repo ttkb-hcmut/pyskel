@@ -618,7 +618,7 @@ We need to build able to distinguish between contexts because the scoping rules 
 \subsubsection{Memory Access}
 
 To read or write a variable in a function, we first look at the \skinl{var_scope} associated to the variable to know if it's local, nonlocal or global.
-We can then look for the variable in the write scope:
+We can then look for the variable in the right scope:
 \begin{itemize}
 \item The identifier of the local scope is in the read-only state,
 \item The upper scope is stored in the local scope,
