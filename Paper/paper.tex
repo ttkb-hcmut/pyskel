@@ -757,9 +757,11 @@ while the other is for its dynamic dictionary of instance variables.
 \subsection{Project Structure}
 The Skel toolchain contains a program called \texttt{necroml}.
 It takes a Skel semantics and translate it to an OCaml interpreter.
-The generated code takes the form of a functor requiring an implementation of the undefined terms.
+The generated code takes the form of a functor requiring an implementation of
+the unspecified types and terms.
 PySkel uses \texttt{necroml} to derive a simple Python interpreter which is used to test the semantics.
-For a better understanding of the PySkel project structure, we provide a summary diagram Figure~\vref{fig:pyskel}.
+For a better understanding of the PySkel project structure, we provide a summary
+diagram in Figure~\vref{fig:pyskel}.
 
 \begin{figure}[ht!]
   \centering
@@ -797,18 +799,20 @@ For a better understanding of the PySkel project structure, we provide a summary
 The \texttt{necroml} program generates specified terms and requires an implementation of unspecified ones.
 This implementation is written in OCaml and it part of the PySkel project.
 With this two parts, a functor instantiation gives the Python interpreter.
-We can run this interpreter by providing a program and some initial state (the monadic state).
+We can run this interpreter by providing a program and some initial state (which
+correspond to the state part the monad).
 This state is computed from a prelude file containing the builtin classes (such as exceptions) and some glue to fit well with the Skel semantics (see Section~\vref{sec:internal function}).
 Python programs are parsed with the \texttt{pyre-ast} OCaml library and then translated to the PySkel AST.
 The whole code is available at the following url: \href{https://gitlab.inria.fr/skeletons/pyskel}{\url{https://gitlab.inria.fr/skeletons/pyskel}}.
 
 The unspecified part of PySkel is small.
-It is composed of primitive types (\texttt{bool}, \texttt{int}), functions that operate on these types, the heaps and a general string map.
+It is composed of primitive types (\texttt{bool}, \texttt{int}), functions that
+operate on these types, the heaps, and a polymorphic map from strings.
 The implementation is 100 lines long, compared to 1200 lines of Skel.
 
 \subsection{Initial State and Internal Function}\label{sec:internal function}
 The evaluation of a Python program requires some initial state.
-This state must contain builtin objects, functions and classses.
+This state must contain builtin objects, functions and classes.
 
 As the organization of builtin functions are not really part of Python evaluation mechanism, we do not want to specify it in the semantics.
 Note that functions are defined in the semantics, but not organized in classes.
@@ -816,7 +820,7 @@ For example, the addition of integers is written in the Skel file, but not linke
 Hence, we need a way to organize existing Skel code into classes from outside the semantics.
 
 This is done with a Python \emph{prelude} file, containing declaration of classes and methods.
-We provide a way to link Skel code with a reserved decorator\footnote{Decorators are a python feature, we are using them only for their syntax, they are ignored at parsing time.} \mintinline{python}{@pyskel_internal}.
+We provide a way to link Skel code with a decorator \mintinline{python}{@pyskel_internal}.
 The writter of the prelude file must specify a token name (\mintinline{python}{"IntAdd"} in the example) to identify the corresponding code.
 We can understand this as ``when you try to call this function, call the Skel code associated to the \mintinline[custom lexer = true]{sk.py}{IntAdd} token instead''.
 \begin{figure}[ht]
@@ -832,7 +836,6 @@ class int(object):
 \end{figure}
 
 Then, in the semantics, the \texttt{call_internal} function redirects the call to execute the desired code, as shown Figure~\vref{fig:call internal}
-
 
 \begin{figure}[ht]
   \centering
@@ -863,6 +866,9 @@ val call_internal ((internal : internal), (args : list<addr>)) : m<addr> =
   \end{minipage}
   \caption{\label{fig:call internal}\texttt{call_internal} function in the Skel semantics}
 \end{figure}
+
+The connection between the decorator and the internal call is done during the
+translation from the Pyre AST to the Skel AST.
 
 \section{Related Work}\label{sec:related}
 There have been several proposals to formalize the semantics of Python. Monat gives a denotational
