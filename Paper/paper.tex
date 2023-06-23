@@ -626,9 +626,14 @@ We can then look for the variable in the right scope:
 \end{itemize}
 
 \section{Objects and Classes}\label{sec:objects}
-Python values are stored on the \emph{heap}.
-Formally, the heap is a mapping from addresses to Python objects, such as constants (integers, strings, booleans, \dots), functions, methods, classes, and instances.
-We describe in this section the object-oriented features of Python and the Skel implementation.
+Classes constitute a major aspect of Python evaluation mechanism.
+They are well described in the semantics, but the addition of scopes extends the functionality coverage.
+We first describe the main aspects of Python concerning object-oriented programming, the features we handled that are not part of the semantics and their implementation.
+
+% TODO:
+% Classes and instances, but focus on global/nonloca and interaction class/function
+% Implementation of class evaluation
+% Interaction between scopes and local fields (objS) => everything is going well
 
 \subsection{Classes}
 A class defines a new \emph{type}, it consists of a set of \emph{fields}, declared in the class body.
