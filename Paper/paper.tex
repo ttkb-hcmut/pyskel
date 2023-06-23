@@ -534,9 +534,18 @@ As these scopes may contain uninitialized values, we define a
 type\footnote{We could also use the \texttt{maybe} type, but we define a new one to clarify the code.}, with a \mintinline[custom lexer = true]{sk.py}{LocalUndef} constructor.
 In addition, function scopes can be shared and access upper scopes.
 To do this, we define an additional heap for scopes, so scopes are allocated and
-referenced with \emph{scope identifiers}. A function scope is thus a pair of an
-optional identifier for the enclosing scope and a map from strings to
-\mintinline[custom lexer = true]{sk.py}{partial_addr} for the scope contents.
+referenced with \emph{scope identifiers}.
+
+Scopes are a data structure to organize identifiers, but we need extra information.
+For example, to execute a variable assignment, one should know in which scope to look for it (i.e., is the variable local, global, or nonlocal).
+To this end, scopes are accompanied by a map from variable names
+to \skinl{type var_scope = Local | Nonlocal | Global}.
+This map is built as follows: global and nonlocal variables are explicitly given, and the remaining
+assignments are local variable declarations.
+So we need two things to manipulate variables in a function: the scope and the location map.
+
+A function scope is thus a pair of a map from strings to \skinl{partial_addr}
+for the scope contents and an optional \skinl{scope_info} for the enclosing scope.
 The final type is presented below.
 %\asi{define maybe and map, explain why you don't use maybe for partial\_addr.
 %  Also define the polymorphic types heap\_addr and heap, especially since the
@@ -549,15 +558,20 @@ type map<_> (* Unspecified map, map<a> is a mapping from strings to a *)
 type maybe<a> = | Nothing | Just a
 
 type partial_addr = | LocalUndef | Value addr
-type partial_scope = (pscope_up: maybe<scope_id>, pmapping: map<partial_addr>)
+type var_scope = | Local | NonLocal | Global
+
+type scope_info = (scope_id, map<var_scope>)
+type partial_scope = (pmapping: map<partial_addr>, pscope_up: maybe<scope_info>)
 
 type scope_id = heap_addr<partial_scope>
 type scope_heap = heap<partial_scope>
 \end{minted}
 
+The \skinl{var_scope} map is not part of the \skinl{partial_scope} type.
+This is because the map is read-only in a function, and we thus avoid to store it in the mutable state.
 
 Note that the \texttt{heap} type is parameterized while the one presented Figure~\vref{fig:simpleskel} is not.
-We thus need to specify the type of values stored in the main Python heap.
+As a result need to specify the type of values stored in the main Python heap.
 It is well described in Monat's semantics (the two sets \textsf{ObjN} and \textsf{ObjS}), and can be translated straight to Skel.
 Heap values are composed of two elements, respectively of type \texttt{obj_n} and \texttt{obj_s}.
 The \texttt{obj_n} type represents the different kinds of values (\mintinline[custom lexer = true]{sk.py}{Int}, \mintinline[custom lexer = true]{sk.py}{String}, \mintinline[custom lexer = true]{sk.py}{Fun (..)}, etc).
@@ -570,28 +584,46 @@ type obj_s = | Locked | Fields map<addr>
 type addr = heap_addr<(obj_n, obj_s)>
 type python_heap = heap<(obj_n, obj_s)>
 \end{minted}
-The \texttt{obj_n} type includes a constructor \skinl{Fun} for functions, this
-constructor includes a \texttt{scopes} field indicating the scope where the
+The \texttt{obj_n} type contains a constructor \skinl{Fun} for functions, this
+constructor includes a \texttt{scope} field indicating the scope where the
 function has been defined.
 
-Identifiers are well organized in the scope structure, but to execute a
-variable assignment, one should know in which scope to look for it (i.e., is the
-variable local, global, or nonlocal). To this end, a function includes a map
-from variable names
-to \mintinline[custom lexer =
-true]{sk.py}{type var_scope = Local | Nonlocal | Global}. This map is built as
-follows: global and nonlocal variables are explicitly given, and the remaining
-assignments are local variable declarations.
+\subsection{Function Call and Memory Access}
+We summarize in this part the different actions performed to evaluate a function.
+The goal of this part is to provide a global understanding of functions and to justify the design of scopes.
 
-To summarize, a function call performs the following:
-\begin{enumerate}
-\item Allocate a fresh scope,
-\item Set its upper scope to the scope stored in the \texttt{Fun} object,
-\item Evaluate the arguments and add them to the scope,
-\item Add LocalUndef for local variables,
-\item Build the \texttt{var_scope} map,
-\item Evaluate the body in the new scope.
-\end{enumerate}
+\subsubsection{Function Declaration}
+Evaluating a function declaration statement consists to allocate a \skinl{Fun} object on the heap.
+This is easily done by extracting the local variables of the function.
+The \skinl{scope} field is set to the current scope information.
+If the function is top level, we set it to \skinl{Nothing}.
+
+\subsubsection{Function Call}
+To call a function, we first extract the \skinl{Fun} object from the heap.
+This object contains the arguments and the local variables to the functions.
+We add these variables to a freh scope, where the arguments are bound to their value and locals to \skinl{LocalUndef}.
+We set the \skinl{pscope_up} field of the fresh scope to the scope information stored in the \skinl{Fun} object.
+
+Then, the var map must be computed (as it is not stored in the \skinl{Fun} object, this is a design choice to keep the \skinl{obj_n} type close to the original semantics) by inspecting the body of the function.
+Once this is done, we can evaluate the body with the new scope information.
+In concrete terms, we locally change the read-only environment to \skinl {InFun (fun_scope, var_map)}.
+
+The environment, first declared Figure~\vref{fig:skelmonad}, keeps track of the evaluation context.
+This context can have three forms: \skinl{Globl}, \skinl{InFun} or \skinl{InClass}.
+\skinl{Globl} means ``In the global scope'', or ``At top level'', it does not provide any additional information.
+The \skinl{InFun} state contains a \skinl{scope_info} and represents the evaluation of a function.
+The \skinl{InClass} is described in the next section.
+We need to build able to distinguish between contexts because the scoping rules are different in a function, a class or at toplevel.
+
+\subsubsection{Memory Access}
+
+To read or write a variable in a function, we first look at the \skinl{var_scope} associated to the variable to know if it's local, nonlocal or global.
+We can then look for the variable in the write scope:
+\begin{itemize}
+\item The identifier of the local scope is in the read-only state,
+\item The upper scope is stored in the local scope,
+\item The global scope is stored in the mutable state.
+\end{itemize}
 
 \section{Objects and Classes}\label{sec:objects}
 Python values are stored on the \emph{heap}.
