@@ -91,10 +91,14 @@
 %\tableofcontents
 
 \begin{abstract}
-  We present PySkel, a formalization of Python semantics in Skel.
+  We present PySkel, a formalization of Python semantics in Skel, a simple
+  semantics description language.
   We describe a subset of the Python programming language including assignments,
-  function calls, object oriented features, and exceptions.
-  This formalization is used to generate an OCaml interpreter and a debugger.
+  function calls, object oriented features, and exceptions. This subset is large
+  enough to include challenges in the formalization of Python, such as the
+  handling of scopes.
+  This formalization is used to generate an OCaml interpreter and a debugger
+  that can be used to run Python programs.
 \end{abstract}
 
 \section{Introduction}\label{sec:introduction}
