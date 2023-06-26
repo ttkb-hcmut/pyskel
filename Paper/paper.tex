@@ -12,6 +12,8 @@
 \usepackage{iftex}
 \usepackage{varioref}
 
+\usetikzlibrary{calc}
+
 \ifpdf{}
 \usepackage{underscore}         % Only needed if you use pdflatex.
 \usepackage[T1]{fontenc}        % Recommended with pdflatex
@@ -725,7 +727,7 @@ def foo():
             print(x)
     return C
 
-foo().bar()
+foo().bar() # 0
     \end{minted}
   \end{minipage}
   \caption{\label{fig:classscope}Scopes interaction between functions and classes.}
@@ -736,9 +738,9 @@ Hence, we need a simple address map, like the global scope, with some upper scop
 In case of nested classes, we may need to pause the current class scope to evaluate the subclass.
 This is why we have a \texttt{scope_stack} in the mutable state.
 At any point of the program, the length of the stack corresponds the number of classes we entered to reach the program point.
-Once the body of the class is fully evaluated, we pop the scope from the stack and we directly have the expected dictionary.
+Once the body of the class is fully evaluated, we pop the scope from the stack to obtain the expected dictionary.
 
-The final \texttt{env} type is given below.
+The final type of the environment below.
 The \skinl{Globl} and \skinl{InFun} constructors have been introduced in the previous section.
 For classes, the context is composed of the \skinl{var_scope} map and the upper scope information.
 The current scope is at the top of the stack, we do not need a scope identifier.
@@ -758,6 +760,9 @@ type env =
 
 
 \section{Deriving an Interpreter}\label{sec:interp}
+Once the semantics is written, we can use the various Skel backends to test and demonstrate the usability of the semantics.
+We describe in this part the process of deriving a Python interpreter.
+
 \subsection{Project Structure}
 The Skel toolchain contains a program called \texttt{necroml}.
 It takes a Skel semantics and translate it to an OCaml interpreter.
@@ -770,11 +775,9 @@ diagram in Figure~\vref{fig:pyskel}.
 \begin{figure}[ht!]
   \centering
   \begin{tikzpicture}
-    \node[draw, very thick] (SS) at (0, 0) {Skel};
-    \node (Un) at (2, 3) {Unspecified Terms};
-    \node (Sp) at (4.5, -3) {Specified Terms};
-    \node (Im) at (7, 3) {Implementation};
-    \node[draw] (In) at (9, 0) {Interpreter};
+    \node[draw, very thick, right] (SS) at (0, -3) {PySkel (Skel)};
+    \node[draw, very thick, right] (Un) at (0, 3) {Unspecified terms implementation (OCaml)};
+    \node[thick, draw] (In) at (9, 0) {Interpreter};
 
     \node (PP) at (13, 4) {Python Program};
     \node (PA) at (13, 2) {Python AST};
@@ -783,19 +786,17 @@ diagram in Figure~\vref{fig:pyskel}.
 
     \node[draw] (R) at (15, 0) {Result};
 
-    \draw[->, >=stealth] (SS) |- node[near start, right]{\texttt{necroml}} (Un);
-    \draw[->, >=stealth] (SS) |- node[near start, right]{\texttt{necroml}} (Sp);
-    \draw[->, >=stealth, very thick] (Un) -- node[midway, above, sloped]{PySkel}  (Im);
-    \draw[->, >=stealth] (Im) -| node[near end, left]{\texttt{necroml}} (In);
-    \draw[->, >=stealth] (Sp) |- node[near end, above]{\texttt{necroml}} (In);
+    \draw[thick, -stealth] (Un) |- node[near end, above]{\texttt{necroml}} ($(In.north west)!0.33!(In.south west)$);
+    \draw[thick, -stealth] (SS) |- ($(In.north west)!0.67!(In.south west)$);
+
 
     \draw[->, >=stealth, very thick] (PF) -| node[near start, above]{Link to OCaml code}(IS);
-    \draw[->, >=stealth] (PP) -- node[midway, right]{\texttt{pyre-ast} (parser)} (PA);
-    \draw[->, >=stealth] (In) |- node[near end, above]{Run} (IS);
+    \draw[->, >=stealth, thick] (PP) -- node[midway, right]{\texttt{pyre-ast} (parser)} (PA);
+    \draw[->, >=stealth, thick] (In) |- node[near end, above]{Run} (IS);
 
-    \draw[->, >=stealth] (In) -- node[near start, above]{Run} (R);
-    \draw[rounded corners=4, ->, >=stealth] (PA) |- (R);
-    \draw[rounded corners=4, ->, >=stealth] (IS) |- (R);
+    \draw[->, >=stealth, thick] (In) -- node[near start, above]{Run} (R);
+    \draw[rounded corners=4, ->, >=stealth, thick] (PA) |- (R);
+    \draw[rounded corners=4, ->, >=stealth, thick] (IS) |- (R);
   \end{tikzpicture}
   \caption{\label{fig:pyskel}Structure of the PySkel Project}
 \end{figure}
