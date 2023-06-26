@@ -640,7 +640,8 @@ A class defines a new \emph{type}, it consists of a set of \emph{fields}, declar
 Classes can inherit from each other, the set of fields of a class and its super classes forms the \emph{attributes} of the class.
 
 This set of fields is a list of statement, just like a function body.
-It may contain local and global variables, declared with the \mintinline{python}{global} and \mintinline{python}{nonlocal} keywords.
+It may contain global and non local variables, declared with the \mintinline{python}{global} and \mintinline{python}{nonlocal} keywords.
+The variables so defined are not part of the fields of the class.
 
 The notion of field is hidden in Python, but it is nevertheless necessary to understand the underlying mechanism of classes.
 In the code sample given in Figure~\vref{fig:class}, the class \texttt{Example} has three fields: \texttt{value}, \texttt{function} and \texttt{method}.
@@ -692,19 +693,18 @@ Example.method(instance, 2) # "nearly" because no method is allocated here
 \end{figure}
 
 As can be seen, instances can have additional fields that are not part of the class (\texttt{x} in the example).
-Those fields are stored on the heap, next to the object they belong to.
-In PySkel, objects in the heap are pairs: one field is for the object itself
-while the other is for its dynamic dictionary of instance variables.
+Those fields are stored on the heap, next to the object they belong to (It's the structural part \textsf{ObjS}).
+
+
+
+As classes are well described in the original semantics, they are not studied any further in this article.
+However, we've changed the semantics of functions, so we need to explain how classes are affected by this change.
+In the next part, we show how classes are impacted by the addition of scopes.
 
 \subsection{Classes in PySkel}
-In PySkel, classes are represented by a map from identifiers to addresses and by the list of its super classes.
-To collect the fields of a class, we first need to evaluate its body.
-This evaluation is performed in a new total (see below) scope, which directly builds the class dictionary.
-
-
-To collect the fields of a given class, we need to evaluate its body.
-The local variables of the body are the fields.
-Classes' bodies are close to functions' ones, with \texttt{global} and \texttt{nonlocal} variables, so a first idea would be to allocate a fresh function scope and evaluate the body in it.
+In PySkel, classes representation contains a map from identifiers to addresses, for the fields.
+It is the only non trivial part to compute when evaluating a class definition.
+Classes' bodies are close to functions' ones, with \mintinline{python}{global} and \mintinline{python}{nonlocal} variables, so a first idea would be to allocate a fresh \emph{function} scope and evaluate the body in it.
 The entries of the scope would be the fields of the class.
 We do something very similar in PySkel, the only difference is the scope type: functions scopes are designed for functions and are not adapted to class evaluation.
 To understand the need of a new scope type, we must clarify the differences between classes and functions.
