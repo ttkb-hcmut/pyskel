@@ -257,9 +257,10 @@ detailed below).
 More precisely, the monadic type we consider is \skinl{m<a>}, where \skinl{<a>} is
 a polymorphic annotation. It is defined as \skinl{(r, s) -> (env<a>, s)}: a
 computation takes a current environment and state as input, and it returns a
-possibly exceptional result and a new state. The type \skinl{exc<a>} is either
+possibly exceptional result and a new state.
+The type \skinl{exc<a>} is either
 \skinl{Cur a}, an actual result of type \skinl{a}, or \skinl{Flag flag},
-indication a control-flow breaking result. This flag can signal the return of a
+indicating a control-flow breaking result. This flag can signal the return of a
 function \skinl{Ret addr}, where \skinl{addr} is the returned value, the
 breaking out or continuing of a loop, and an exception \skinl{Exn addr} where
 \skinl{addr} is the exception object.
@@ -296,7 +297,7 @@ type, i.e., computations that return unit.
 
 \begin{figure}
 \centering
-\begin{minipage}{0.5\textwidth}
+\begin{minipage}{0.37\textwidth}
 \begin{minted}[custom lexer=true]{sk.py}
 val eval_expr : expr -> m<addr>
 val write_env : (id, addr) -> m<()>
@@ -411,7 +412,10 @@ the global \texttt{x}. Note that the global annotation for a variable also
 impacts how it is read. The following code for instance outputs \texttt{3}.
 Indeed, as \texttt{x} is not defined in \texttt{baz}, it is looked up in
 \texttt{bar}, where it is said to be global.
-\begin{minted}{python}
+\begin{figure}[h]
+  \centering
+  \begin{minipage}{0.25\linewidth}
+    \begin{minted}{python}
 x = 3
 def foo():
     x = 1
@@ -422,7 +426,9 @@ def foo():
         baz()
     bar()
 foo()
-\end{minted}
+    \end{minted}
+  \end{minipage}
+\end{figure}
 
 Alternatively, a variable assignment may refer to an enclosing scope that is not the global
 scope. This is illustrated in the fourth program, where \texttt{x} is local to
@@ -437,7 +443,10 @@ by an assignment is statically known when parsing the program. However, with the
 exception of the global scope, scopes are created at run-time (for instance when
 calling a function), and they may persist after the function's completion.
 Consider the following code.
-\begin{minted}{python}
+\begin{figure}[h]
+  \centering
+  \begin{minipage}{0.25\linewidth}
+    \begin{minted}{python}
 def counter(init):
   x = init
   def reset():
@@ -452,7 +461,10 @@ def counter(init):
 
 r,i = counter(5)
 i(); r(); i()
-\end{minted}
+    \end{minted}
+  \end{minipage}
+\end{figure}
+
 After calling \texttt{counter}, the two returned functions share its scope as
 enclosing scope, where the nonlocal variable \texttt{x} is defined. The
 code thus prints \texttt{6}, \texttt{0}, then \texttt{1}.
@@ -465,7 +477,7 @@ code thus prints \texttt{6}, \texttt{0}, then \texttt{1}.
 
 
 To summarize, the \emph{global scope} contains all the toplevel declarations, it is a mapping from variable names to heap addresses.
-The local variables of a function and its parameters are stored in the scope associated with the function.
+Calling a function creates a new scope, containing the local variables of the function and its parameters.
 Functions may need to access upper scopes, to read or write non-local variables.
 We depict this dependency as a tree of scope, as shown in Figure~\vref{fig:functionscope}.
 The dashed arrows to the global scope are only followed when reading variables
@@ -508,10 +520,12 @@ def incr():
   \caption{\label{fig:functionscope}Simple Functions and Corresponding Scopes}
 \end{figure}
 
-Note that scopes are computed at parsing time: when a function is called, its local variable are allocated but not initialized yet.
-Thus, reading an uninitialized variable in a function definition results in an
-\texttt{UnboundLocalError} instead of the \texttt{NameError} that occurs when a
-variable does not exists. This is illustrated by the following code.
+Note that there is one scope per function \emph{call}.
+The diagram in Figure~\ref{fig:functionscope} is valid if \mintinline{python}{wrapper} and \mintinline{python}{incr} have been called exactly once.
+The local variables are computed at parsing time, and are allocated at run time when the function call occurs.
+It is thus possible to read an allocated but not initialized variable.
+Such a read will raise \texttt{UnboundLocalError} instead of the \texttt{NameError}, that occurs when a
+variable does not exists. This is illustrated by the following code:
 \begin{minted}{python}
 def f():
   x = undef # raises NameError as undef does not exists
@@ -603,7 +617,7 @@ If the function is top level, we set it to \skinl{Nothing}.
 \subsubsection{Function Call}
 To call a function, we first extract the \skinl{Fun} object from the heap.
 This object contains the arguments and the local variables to the functions.
-We add these variables to a freh scope, where the arguments are bound to their value and locals to \skinl{LocalUndef}.
+We add these variables to a freh scope, where the arguments are bound to their values and locals to \skinl{LocalUndef}.
 We set the \skinl{pscope_up} field of the fresh scope to the scope information stored in the \skinl{Fun} object.
 
 Then, the var map must be computed (as it is not stored in the \skinl{Fun} object, this is a design choice to keep the \skinl{obj_n} type close to the original semantics) by inspecting the body of the function.
@@ -615,7 +629,7 @@ This context can have three forms: \skinl{Globl}, \skinl{InFun} or \skinl{InClas
 \skinl{Globl} means ``In the global scope'', or ``At top level'', it does not provide any additional information.
 The \skinl{InFun} state contains a \skinl{scope_info} and represents the evaluation of a function.
 The \skinl{InClass} is described in the next section.
-We need to build able to distinguish between contexts because the scoping rules are different in a function, a class or at toplevel.
+We need to be able to distinguish between contexts because the scoping rules are different in a function, a class or at toplevel.
 
 \subsubsection{Memory Access}
 
@@ -641,7 +655,7 @@ We first describe the main aspects of Python concerning object-oriented programm
 A class defines a new \emph{type}, it consists of a set of \emph{fields}, declared in the class body.
 Classes can inherit from each other, the set of fields of a class and its super classes forms the \emph{attributes} of the class.
 
-This set of fields is a list of statement, just like a function body.
+This set of fields is given as a list of statement, just like a function body.
 It may contain global and non local variables, declared with the \mintinline{python}{global} and \mintinline{python}{nonlocal} keywords.
 The variables so defined are not part of the fields of the class.
 
@@ -667,7 +681,7 @@ class Example(Super):
 
 To create an instance of some class, we call the class like a function: \texttt{Example()}.
 This creates a reference to the class called.
-Instances shares the attributes of the superclass, they can access them with the dot operator: \texttt{Example().value}.
+Instances shares the attributes of the superclass, which can be accessed with the dot operator: \texttt{Example().value}.
 This operator can have some side effects.
 In particular, if an instance accesses a function of its class, a new \emph{method} is allocated and returned instead of the function.
 This method contains two addresses: the instance and the function.
@@ -711,7 +725,7 @@ The entries of the scope would be the fields of the class.
 We do something very similar in PySkel, the only difference is the scope type: functions scopes are designed for functions and are not adapted to class evaluation.
 To understand the need of a new scope type, we must clarify the differences between classes and functions.
 
-First classes variables cannot be uninitialized, so we don't need partial maps and \texttt{LocalUndef}.
+First classes variables cannot be uninitialized, so we don't need partial maps and \skinl{LocalUndef}.
 Then, fields exist only in the class, they are not accessible in subfunctions or subclasses, so the scope chain need to bypass classes (see example figure~\vref{fig:classscope}).
 Finally, classes scopes cannot be shared and modified by others, so we do not need to store them on the heap.
 
@@ -812,7 +826,7 @@ The whole code is available at the following url: \href{https://gitlab.inria.fr/
 
 The unspecified part of PySkel is small.
 It is composed of primitive types (\texttt{bool}, \texttt{int}), functions that
-operate on these types, the heaps, and a polymorphic map from strings.
+operate on these types, the heaps, and a polymorphic string map.
 The implementation is 100 lines long, compared to 1200 lines of Skel.
 
 \subsection{Initial State and Internal Function}\label{sec:internal function}
