@@ -651,14 +651,10 @@ We can then look for the variable in the right scope:
 \end{itemize}
 
 \section{Objects and Classes}\label{sec:objects}
-Classes constitute a major aspect of Python evaluation mechanism.
-They are well described in the semantics, but the addition of scopes extends the functionality coverage.
-We first describe the main aspects of Python concerning object-oriented programming, the features we handled that are not part of the semantics and their implementation.
-
-% TODO:
-% Classes and instances, but focus on global/nonloca and interaction class/function
-% Implementation of class evaluation
-% Interaction between scopes and local fields (objS) => everything is going well
+Classes constitute a major aspect of Python. They are well described in Monat's
+semantics, with the exception of the subtle interactions with function scopes.
+In this section, we first introduce the basic aspects of classes and objects in
+Python, before detailing the scope issues and our implementation in Skel.
 
 \subsection{Classes in Python}
 A class defines a new \emph{type}, it consists of a set of \emph{fields}, declared in the class body.
@@ -669,7 +665,7 @@ It may contain global and non local variables, declared with the \mintinline{pyt
 The variables so defined are not part of the fields of the class.
 
 The notion of field is hidden in Python, but it is nevertheless necessary to understand the underlying mechanism of classes.
-In the code sample given in Figure~\vref{fig:class}, the class \texttt{Example} has three fields: \texttt{value}, \texttt{function} and \texttt{method}.
+In the code sample given in Figure~\vref{fig:class}, the class \texttt{Example} has three fields: \texttt{value}, \texttt{function}, and \texttt{method}.
 As the class inherits from \mintinline{python}{Super}, the set of attributes may not be equal to the set of fields.
 
 \begin{figure}[ht]
@@ -693,7 +689,7 @@ This creates a reference to the class called.
 Instances shares the attributes of the superclass, which can be accessed with the dot operator: \texttt{Example().value}.
 This operator can have some side effects.
 In particular, if an instance accesses a function of its class, a new \emph{method} is allocated and returned instead of the function.
-This method contains two addresses: the instance and the function.
+This method contains two addresses: the instance (i.e., calling object) and the function.
 Thus, the method call simply passes the instance as first parameter to the function.
 The given instance is modified according to the function body defined in the class.
 This mechanism is illustrated Figure~\vref{fig:method}.
@@ -718,15 +714,15 @@ Example.method(instance, 2) # "nearly" because no method is allocated here
 \end{figure}
 
 As can be seen, instances can have additional fields that are not part of the class (\texttt{x} in the example).
-Those fields are stored on the heap, next to the object they belong to (It's the structural part \textsf{ObjS}).
+Those fields are stored on the heap, next to the object they belong to (as the
+structural part \textsf{ObjS} of the value representing the object).
 
 
 
-As classes are well described in the original semantics, they are not studied any further in this article.
-However, we've changed the semantics of functions, so we need to explain how classes are affected by this change.
-In the next part, we show how classes are impacted by the addition of scopes.
+As classes are well described in Monat's semantics, they are not studied any further in this article.
+However, we have implemented nonlocal and global scopes in functions, so we need to explain how classes are affected by this change.
 
-\subsection{Classes in PySkel}
+\subsection{Classes and Scopes in PySkel}
 In PySkel, classes representation contains a map from identifiers to addresses, for the fields.
 It is the only non trivial part to compute when evaluating a class definition.
 Classes' bodies are close to functions' ones, with \mintinline{python}{global} and \mintinline{python}{nonlocal} variables, so a first idea would be to allocate a fresh \emph{function} scope and evaluate the body in it.
