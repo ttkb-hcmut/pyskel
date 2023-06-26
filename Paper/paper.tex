@@ -635,20 +635,22 @@ We first describe the main aspects of Python concerning object-oriented programm
 % Implementation of class evaluation
 % Interaction between scopes and local fields (objS) => everything is going well
 
-\subsection{Classes}
+\subsection{Classes in Python}
 A class defines a new \emph{type}, it consists of a set of \emph{fields}, declared in the class body.
 Classes can inherit from each other, the set of fields of a class and its super classes forms the \emph{attributes} of the class.
 
+This set of fields is a list of statement, just like a function body.
+It may contain local and global variables, declared with the \mintinline{python}{global} and \mintinline{python}{nonlocal} keywords.
 
 The notion of field is hidden in Python, but it is nevertheless necessary to understand the underlying mechanism of classes.
 In the code sample given in Figure~\vref{fig:class}, the class \texttt{Example} has three fields: \texttt{value}, \texttt{function} and \texttt{method}.
-As the class does not inherit from another class, the set of attributes is equal to the set of fields.
+As the class inherits from \mintinline{python}{Super}, the set of attributes may not be equal to the set of fields.
 
 \begin{figure}[ht]
   \centering
   \begin{minipage}{0.25\textwidth}
     \begin{minted}{python}
-class Example:
+class Example(Super):
   value = 0
   def function():
     return 1
@@ -660,12 +662,46 @@ class Example:
   \caption{\label{fig:class}A Class in Python}
 \end{figure}
 
+To create an instance of some class, we call the class like a function: \texttt{Example()}.
+This creates a reference to the class called.
+Instances shares the attributes of the superclass, they can access them with the dot operator: \texttt{Example().value}.
+This operator can have some side effects.
+In particular, if an instance accesses a function of its class, a new \emph{method} is allocated and returned instead of the function.
+This method contains two addresses: the instance and the function.
+Thus, the method call simply passes the instance as first parameter to the function.
+The given instance is modified according to the function body defined in the class.
+This mechanism is illustrated Figure~\vref{fig:method}.
 
+\begin{figure}[ht!]
+  \centering
+  \begin{minipage}{0.8\textwidth}
+    \begin{minted}{python}
+class Example:
+    def method(self, value):
+        self.x = value
+
+instance = Example()
+
+Example.method # is a function
+instance.method # is a method, referencing `instance` and `Example.method`
+instance.method(2) # is nearly the same as
+Example.method(instance, 2) # "nearly" because no method is allocated here
+    \end{minted}
+  \end{minipage}
+  \caption{\label{fig:method}Functions and Methods}
+\end{figure}
+
+As can be seen, instances can have additional fields that are not part of the class (\texttt{x} in the example).
+Those fields are stored on the heap, next to the object they belong to.
+In PySkel, objects in the heap are pairs: one field is for the object itself
+while the other is for its dynamic dictionary of instance variables.
+
+\subsection{Classes in PySkel}
 In PySkel, classes are represented by a map from identifiers to addresses and by the list of its super classes.
 To collect the fields of a class, we first need to evaluate its body.
 This evaluation is performed in a new total (see below) scope, which directly builds the class dictionary.
 
-\subsection{Collect the Fields of a Class}
+
 To collect the fields of a given class, we need to evaluate its body.
 The local variables of the body are the fields.
 Classes' bodies are close to functions' ones, with \texttt{global} and \texttt{nonlocal} variables, so a first idea would be to allocate a fresh function scope and evaluate the body in it.
@@ -720,43 +756,6 @@ type env =
   \end{minipage}
 \end{figure}
 
-\subsection{Instances}
-To create an instance of some class in Python, we call the class like a function: \texttt{Example()}.
-This creates a reference to the class called.
-Instances shares the attributes of the superclass, they can access them with the dot operator: \texttt{Example().value}.
-This operator can have some side effects.
-In particular, if an instance accesses a function of its class, a new \emph{method} is allocated and returned instead of the function.
-This method contains two addresses: the instance and the function.
-Thus, the method call simply passes the instance as first parameter to the function.
-The given instance is modified according to the function body defined in the class.
-This mechanism is illustrated Figure~\vref{fig:method}.
-
-%\asi{say this is how late binding is implemented}
-
-\begin{figure}[ht!]
-  \centering
-  \begin{minipage}{0.8\textwidth}
-    \begin{minted}{python}
-class Example:
-    def method(self, value):
-        self.x = value
-
-instance = Example()
-
-Example.method # is a function
-instance.method # is a method, referencing `instance` and `Example.method`
-instance.method(2) # is nearly the same as
-Example.method(instance, 2) # "nearly" because no method is allocated here
-    \end{minted}
-  \end{minipage}
-  \caption{\label{fig:method}Functions and Methods}
-\end{figure}
-
-
-As can be seen, instances can have additional fields that are not part of the class (\texttt{x} in the example).
-Those fields are stored on the heap, next to the object they belong to.
-In PySkel, objects in the heap are pairs: one field is for the object itself
-while the other is for its dynamic dictionary of instance variables.
 
 \section{Deriving an Interpreter}\label{sec:interp}
 \subsection{Project Structure}
