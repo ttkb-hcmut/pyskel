@@ -754,25 +754,25 @@ val get_attribute ((at_e: addr), (attr: id)) : m<addr> =
   let (objn, objs) =@ read at_e in
   match objn with
   | Class (_, supers, _, dict) ->
-    (* We inlined get_builtin_field here *)
-    let get_builtin = map_lookup<addr> (attr, dict) in
-    match get_builtin with
-    | Just a -> ret a
-    | Nothing ->
-      (* look in super classes *)
-      let has_attribute_attr = \super:addr -> has_attribute (super, attr) in
-      let supers_with_attribute =@ filterM<addr> (has_attribute_attr, supers) in
-      match supers_with_attribute with
-      | Cons(h, _) -> get_attribute (h, attr)
-      | Nil ->
-        (* not in super classes, look in objs *)
-        match objs with
-        | Locked -> raise_exn<addr> _AttributeError
-        | Fields map ->
-          let get_field = map_lookup<addr> (attr, map) in
-          match get_field with
-          | Nothing -> raise_exn<addr> _AttributeError
-          | Just a -> ret a
+    (* Look in objs first *)
+    match objs with
+    | Locked -> raise_exn<addr> _AttributeError
+    | Fields map ->
+      let get_field = map_lookup<addr> (attr, map) in
+      match get_field with
+      | Just a -> ret a
+      | Nothing -> 
+        (* We inlined get_builtin_field here *)
+        let get_builtin = map_lookup<addr> (attr, dict) in
+        match get_builtin with
+        | Just a -> ret a
+        | Nothing ->
+          (* look in super classes *)
+          let has_attribute_attr = \super:addr -> has_attribute (super, attr) in
+          let supers_with_attribute =@ filterM<addr> (has_attribute_attr, supers) in
+          match supers_with_attribute with
+          | Cons(h, _) -> get_attribute (h, attr)
+          | Nil -> raise_exn<addr> _AttributeError
           end
         end
       end
@@ -829,7 +829,6 @@ val eval_stmt (s: stmt) : m<()> =
     let addr =@ eval_expr v in
     write_env (x, addr)
   | SAttrAssign (e, attr, v) ->
-    (* write to objs *)
     let at_e =@ eval_expr e in
     let (objn, objs) =@ read at_e in
     let at_v =@ eval_expr v in
@@ -889,7 +888,7 @@ val eval_stmt (s: stmt) : m<()> =
     (* superclasses are in [args] *)
     let at_args =@ mapM<expr, addr> (eval_expr, args) in
     let c = Class(name, at_args, type_id, dict) in
-    let addr =@ alloc (c, Locked) in
+    let addr =@ alloc (c, Fields map_empty<addr>) in
     write_env (name, addr)
   (* nonlocal and global are not evaluated, since they are parsing time information *)
   | SNonlocal _ -> return<()> ()
