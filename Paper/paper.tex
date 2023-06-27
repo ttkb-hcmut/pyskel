@@ -737,9 +737,8 @@ To understand why, we next clarify the differences between classes and functions
 Firstly, class variables cannot be uninitialized, hence we do not need partial maps.
 Secondly, fields exist only in the class, they are not accessible from functions
 or classes defined inside the class. Thus the scope chain need to bypass classes (see example figure~\vref{fig:classscope}).
-Finally, classes scopes cannot be modified, so we do not
-need to store them on the heap.
-\asi{I changed this last sentence but I’m not so sure about it.}
+Finally, classes scopes cannot be shared (as fields only exist in the class), so
+there is no need to store them on the heap.
 
 \begin{figure}[ht]
   \centering
