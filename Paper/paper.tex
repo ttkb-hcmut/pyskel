@@ -723,16 +723,23 @@ As classes are well described in Monat's semantics, they are not studied any fur
 However, we have implemented nonlocal and global scopes in functions, so we need to explain how classes are affected by this change.
 
 \subsection{Classes and Scopes in PySkel}
-In PySkel, classes representation contains a map from identifiers to addresses, for the fields.
-It is the only non trivial part to compute when evaluating a class definition.
-Classes' bodies are close to functions' ones, with \mintinline{python}{global} and \mintinline{python}{nonlocal} variables, so a first idea would be to allocate a fresh \emph{function} scope and evaluate the body in it.
-The entries of the scope would be the fields of the class.
+In PySkel, the representation of classes contains a map from identifiers to
+addresses to store the values of the fields.
+This is the only non trivial part of the evaluation of a class definition.
+The bodies of classes are similar to the ones of functions, including the
+declaration of \mintinline{python}{global} and \mintinline{python}{nonlocal}
+variables. A first approach for their evaluation would consist of allocating a
+fresh \emph{function} scope and evaluating the body in it, to populate the scope
+hence obtain the values of the fields of the class.
 We do something very similar in PySkel, the only difference is the scope type: functions scopes are designed for functions and are not adapted to class evaluation.
-To understand the need of a new scope type, we must clarify the differences between classes and functions.
+To understand why, we next clarify the differences between classes and functions.
 
-First classes variables cannot be uninitialized, so we don't need partial maps and \skinl{LocalUndef}.
-Then, fields exist only in the class, they are not accessible in subfunctions or subclasses, so the scope chain need to bypass classes (see example figure~\vref{fig:classscope}).
-Finally, classes scopes cannot be shared and modified by others, so we do not need to store them on the heap.
+Firstly, class variables cannot be uninitialized, hence we do not need partial maps.
+Secondly, fields exist only in the class, they are not accessible from functions
+or classes defined inside the class. Thus the scope chain need to bypass classes (see example figure~\vref{fig:classscope}).
+Finally, classes scopes cannot be modified, so we do not
+need to store them on the heap.
+\asi{I changed this last sentence but I’m not so sure about it.}
 
 \begin{figure}[ht]
   \centering
@@ -759,7 +766,7 @@ This is why we have a \texttt{scope_stack} in the mutable state.
 At any point of the program, the length of the stack corresponds the number of classes we entered to reach the program point.
 Once the body of the class is fully evaluated, we pop the scope from the stack to obtain the expected dictionary.
 
-The final type of the environment below.
+The final type of the environment is defined below.
 The \skinl{Globl} and \skinl{InFun} constructors have been introduced in the previous section.
 For classes, the context is composed of the \skinl{var_scope} map and the upper scope information.
 The current scope is at the top of the stack, we do not need a scope identifier.
