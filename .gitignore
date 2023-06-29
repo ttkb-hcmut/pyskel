@@ -3,8 +3,8 @@
 *.log
 tmp/
 
-Semantics/pyskel/test.py
-/Semantics/pyskel/python_path
+/Semantics/pyskel/test.py
+/Semantics/pyskel/test/python_path
 /Semantics/pyskel/_build/
 /Notes/scopes/.auctex-auto/
 /Notes/scopes/scopes.aux
