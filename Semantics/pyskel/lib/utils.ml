@@ -180,7 +180,7 @@ and show_objn (heap: (obj_n * obj_s) IMap.t) (x: obj_n) =
     Printf.sprintf "<function %s(%s) with locals = (%s)>"
       name
       (Stdlib.List.fold_left (fun s p -> s ^ p ^ ", ") "" @@ to_stdlib_list args)
-      (Stdlib.List.fold_left (fun s p -> s ^ "'" ^ p ^ "'" ^ ", ") "" @@ to_stdlib_list locals)
+      (Stdlib.List.fold_left (fun s p -> s ^ "'" ^ p ^ "'" ^ ", ") "" @@ (to_stdlib_list args) @ (to_stdlib_list locals))
   | Class(name, supers, _, dict) ->
     let supers_str =
       String.concat ", " @@ Stdlib.List.map (show_objn heap) @@ Stdlib.List.map (fun a -> fst @@ IMap.find a heap) @@ to_stdlib_list supers in
