@@ -26,7 +26,12 @@ js_of_ocaml
 js_of_ocaml-ppx
 ```
 
-To build the project, go in `Semantics/pyskel` and run `dune build`. You may then run tests using `dune test`.
+To build the project, go in `Semantics/pyskel` and run:
+``` sh
+./setup.sh
+dune build
+dune test # to run the test suite
+```
 
 ### Module system
 
