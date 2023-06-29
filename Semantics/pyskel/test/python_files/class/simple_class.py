@@ -1,4 +1,4 @@
-# f\"class {__result__.__name__} {{foo = {__result__.foo.__code__.co_varnames}, x = {__result__.x}, y = {__result__.y}}}\"
+# f"class {__result__.__name__} {{foo = {__result__.foo.__code__.co_varnames}, x = {__result__.x}, y = {__result__.y}}}"
 
 class __result__:
     x = 0

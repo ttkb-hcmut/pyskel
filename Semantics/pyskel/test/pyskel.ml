@@ -34,12 +34,14 @@ let test_file (builtins, heap) file_name python =
     end;
 
   (* Eval file with python *)
-  let tmp_file = Filename.temp_file "" ".out" in
+  let tmp_file = Filename.temp_file "" ".py" in
+  let tmp_result = Filename.temp_file "" ".out" in
   Printf.printf "CPython: ";
-  ignore @@ Sys.command @@ Printf.sprintf
-    "mktemp | xargs -I {} sh -c \"cat %s > {}; echo 'print(%s)' >> {} && %s {}\" > %s"
-    file_name thing_to_print python tmp_file;
-  let reader = open_in tmp_file in
+  let command = Printf.sprintf
+    "cat %s > %s; echo 'print(%s)' >> %s && %s %s > %s"
+    file_name tmp_file thing_to_print tmp_file python tmp_file tmp_result in
+  ignore @@ Sys.command @@ command;
+  let reader = open_in tmp_result in
   let rec loop () = Printf.printf "%s" (input_line reader) ; loop () in
   try loop () with _ -> close_in reader
 
@@ -55,7 +57,6 @@ let _ =
       let config_file = open_in "python_path" in
       let python_path = really_input_string config_file (in_channel_length config_file - 1) in
       close_in config_file; python_path in
-  Printf.printf "\"%s\"" python_path;
   (* Read file name from command line args *)
   let test_directory = "python_files" in
 

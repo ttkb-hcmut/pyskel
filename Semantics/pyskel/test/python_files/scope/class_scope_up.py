@@ -1,4 +1,4 @@
-# f\"\\\"{__result__}\\\"\"
+# f"\"{__result__}\""
 
 def f(x):
     class C:
