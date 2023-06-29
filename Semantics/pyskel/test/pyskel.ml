@@ -44,13 +44,18 @@ let test_file (builtins, heap) file_name python =
   try loop () with _ -> close_in reader
 
 
-let test_dir data dir =
+let test_dir python_path data dir =
   if Sys.is_directory dir then begin
     let files = Sys.readdir dir in
-    Array.iter (fun file -> test_file data (dir ^ Filename.dir_sep ^ file) "/usr/bin/python") files;
+    Array.iter (fun file -> test_file data (dir ^ Filename.dir_sep ^ file) python_path) files;
   end
 
 let _ =
+  let python_path =
+      let config_file = open_in "python_path" in
+      let python_path = really_input_string config_file (in_channel_length config_file - 1) in
+      close_in config_file; python_path in
+  Printf.printf "\"%s\"" python_path;
   (* Read file name from command line args *)
   let test_directory = "python_files" in
 
@@ -70,4 +75,4 @@ let _ =
   end;
 
   let subdirs = Sys.readdir "." in
-  Array.iter (test_dir (builtins, heap)) subdirs
+  Array.iter (test_dir python_path (builtins, heap)) subdirs
