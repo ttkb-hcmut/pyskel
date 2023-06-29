@@ -9,21 +9,12 @@ To build the projetct, you first need to install the necro toolchain.
 opam switch create pyskel 4.14.0
 eval $(opam env)
 opam repository add necro https://gitlab.inria.fr/skeletons/opam-repository.git#necro
-opam install necrolib
-```
-
-The project depends on:
-```
-pyre-ast
-necroml
-
+opam install necroml pyre-ast
 ```
 
 And, optionally, for the debug branch (experimental):
 ```
-necrodebug
-js_of_ocaml
-js_of_ocaml-ppx
+opam install necrodebug js_of_ocaml js_of_ocaml-ppx
 ```
 
 To build the project, go in `Semantics/pyskel` and run:
