@@ -117,8 +117,8 @@ semantics of Python, written as a Skeletal Semantics~\cite{noizet:hal-03784478}
 description, from which an OCaml interpreter can be extracted. Our work is based
 on Monat's denotational semantics of Python~\cite{Monat2021}.
 
-The Skeletal Semantics description of a language can be thought as an
-interpreter written in a tiny functional languages, called Skel. There are a few features
+The Skeletal Semantics description of a language can be thought of as an
+interpreter written in a tiny functional language, called Skel. There are a few features
 that distinguish such a description from a usual interpreter. First, Skel allows
 for partial and non-deterministic programs with the \skinl{branch} construct.
 Next, it is not necessary to specify everything: some types or functions may be
@@ -147,11 +147,11 @@ we need for PySkel, a longer introduction to Skel and monads is available in~\ci
 Consider the Python statement \texttt{x = \(e\)}.
 To provide the semantics of this statement, we write a Skel program containing
 an evaluation function \skinl{eval_stmt}, which takes a statement as argument.
-A first version of this program is represented in Figure~\vref{fig:simpleskel}.
+A first version of this program is presented in Figure~\vref{fig:simpleskel}.
 
 In this example, we start by declaring types.
 Some of them are unspecified (they do not have a definition): \skinl{addr},
-\skinl{heap}, \skinl{env}, and \skinl{expr}. The first three are
+\skinl{heap}, \skinl{env}, \skinl{id}, and \skinl{expr}. The first four are
 considered implementation-dependent, the \skinl{expr} type for expressions is
 specified later.
 The \skinl{stmt} type is specified as a data type with a single
@@ -251,7 +251,7 @@ binder @ = bind
 \caption{Reader, State, and Exception Monad}\label{fig:skelmonad}
 \end{figure}
 
-The monad we use in our semantics is given Figure~\vref{fig:skelmonad}. It
+The monad we use in our semantics is given Figure~\ref{fig:skelmonad}. It
 combines three monads: a \emph{reader monad} to give read-only access to a local
 environment and to the built-in values (type \skinl{r}), a \emph{state monad}
 for the read-write access to the heap and the scopes (type \skinl{s}), and an \emph{exception monad}
@@ -271,7 +271,7 @@ breaking out or continuing of a loop, and an exception \skinl{Exn addr} where
 
 A monad is associated with two functions. The function \skinl{return<a>} takes a
 pure value of type \skinl{a} and puts it in the monad as a computation of type
-\skinl{m<a>}. Its code in Figure~\vref{fig:skelmonad} is
+\skinl{m<a>}. Its code in Figure~\ref{fig:skelmonad} is
 \skinl{λ(_, s):(r, s) -> (Cur<a> v, s)}: it is an anonymous function that takes
 a pair \skinl{(_,s)}, where the environment is ignored. It then returns a normal
 result \skinl{Cur<a> v} alongside the unchanged state \skinl{s}. This code shows
@@ -410,7 +410,7 @@ global (different) \texttt{x}.
 To tell Python that an assignment is not a variable declaration, one should
 state the scope of the variable before any assignment, so that this
 assignment does not declare the variable. One may state that a variable is
-global, as shown in the third program. This programs prints \texttt{foo:1} and
+global, as shown in the third program. This program prints \texttt{foo:1} and
 \texttt{global:1}, illustrating that the assignment in \texttt{foo} did change
 the global \texttt{x}. Note that the global annotation for a variable also
 impacts how it is read. The following code for instance outputs \texttt{3}.
@@ -483,7 +483,7 @@ code thus prints \texttt{6}, \texttt{0}, then \texttt{1}.
 To summarize, the \emph{global scope} contains all the toplevel declarations, it is a mapping from variable names to heap addresses.
 Calling a function creates a new scope, containing the local variables of the function and its parameters.
 Functions may need to access upper scopes, to read or write non-local variables.
-We depict this dependency as a tree of scope, as shown in Figure~\vref{fig:functionscope}.
+We depict this dependency as a tree of scope, as shown in Figure~\ref{fig:functionscope}.
 The dashed arrows to the global scope are only followed when reading variables
 that are not defined locally.
 In fact, the scopes of the \texttt{incr} and \texttt{wrapper} functions do not
@@ -530,10 +530,10 @@ The local variables are computed at parsing time, and are allocated at run time 
 It is thus possible to read an allocated but not initialized variable.
 Such a read will raise \texttt{UnboundLocalError}, instead of the
 \texttt{NameError} exception that is raised when a
-variable does not exists. This is illustrated by the following code:
+variable does not exist. This is illustrated by the following code:
 \begin{minted}{python}
 def f():
-  x = undef # raises NameError as undef does not exists
+  x = undef # raises NameError as undef does not exist
   x = y     # raises UnboundLocalError because y is local to f but not yet bound
   y = 0
 \end{minted}
@@ -547,12 +547,12 @@ The global scope is unique and shared between all code, with a simple structure.
 In Skel, it is defined as the declaration \mintinline[custom
 lexer=true]{sk.py}{type global_scope = map<addr>}, i.e., a mapping from strings
 to adresses (see below).
-It is part of the mutable state described Figure~\vref{fig:skelmonad}.
+It is part of the mutable state described in Figure~\ref{fig:skelmonad}.
 
 We next introduce the type of function scopes.
 As these scopes may contain uninitialized values, we define a
 \texttt{partial_addr} type, isomorphic to Haskell's well-known \texttt{Maybe}
-type\footnote{We could also use the \texttt{maybe} type, but we define a new one to clarify the code.}, with a \mintinline[custom lexer = true]{sk.py}{LocalUndef} constructor.
+type,\footnote{We could also use the \texttt{maybe} type, but we define a new one to clarify the code.} with a \mintinline[custom lexer = true]{sk.py}{LocalUndef} constructor.
 In addition, function scopes can be shared and can access upper scopes.
 To account for this, we define an additional heap for scopes, so scopes are allocated and
 referenced with \emph{scope identifiers}.
@@ -560,7 +560,10 @@ referenced with \emph{scope identifiers}.
 Scopes are a data structure to organize identifiers, but they are not sufficient.
 For example, to execute a variable assignment, one should know in which scope to look for it (i.e., is the variable local, global, or nonlocal).
 To this end, scopes are accompanied by a map from variable names
-to \skinl{type var_scope = Local | Nonlocal | Global}.
+to:
+\begin{minted}[custom lexer = true]{sk.py}
+type var_scope = Local | Nonlocal | Global
+\end{minted}
 This map is built as follows: global and nonlocal variables are explicitly given, and the remaining
 assignments are local variable declarations.
 So we need two things to manipulate variables in a function: the scope and the location map.
@@ -591,10 +594,10 @@ type scope_heap = heap<partial_scope>
 The \skinl{var_scope} map is not part of the \skinl{partial_scope} type.
 This is because the map is read-only in a function, and we thus avoid to store it in the mutable state.
 
-Note that the \texttt{heap} type is parameterized while the one presented Figure~\vref{fig:simpleskel} is not.
+Note that the \texttt{heap} type is parameterized while the one presented in Figure~\ref{fig:simpleskel} is not.
 As a consequence, we need to specify the type of values stored in the main Python heap.
 It is well described in Monat's semantics (the two sets \textsf{ObjN} and
-\textsf{ObjS}), and can be directly translated to Skel.
+\textsf{ObjS}, presented in Chapter 6 of his thesis), and can be directly translated to Skel.
 Heap values are composed of two elements, respectively of type \texttt{obj_n} and \texttt{obj_s}.
 The \texttt{obj_n} type represents the different kinds of values (\mintinline[custom lexer = true]{sk.py}{Int}, \mintinline[custom lexer = true]{sk.py}{String}, \mintinline[custom lexer = true]{sk.py}{Fun (..)}, etc).
 The \texttt{obj_s} part is a dictionary containing the fields of a value, with a
@@ -618,7 +621,7 @@ The goal of this part is to provide a global understanding of functions and to j
 \subsubsection{Function Declaration}
 Evaluating a function declaration statement consists in the allocation of a
 \skinl{Fun} object on the heap. It is comprised of the name of the function, the
-list of its arguments, the list of its local variable, the code of its body, and
+list of its arguments, the list of its local variables, the code of its body, and
 the optional enclosing scope: it is set to the current scope unless the function
 is declared at top level.
 
@@ -632,9 +635,9 @@ Then, the var map is computed by inspecting the body of the function. It is curr
 Once this is done, we evaluate the body with the new scope information, by
 locally setting the environment to \skinl {InFun (fun_scope, var_map)}.
 
-The environment, first declared Figure~\vref{fig:skelmonad}, keeps track of the evaluation context.
+The environment, first declared in Figure~\ref{fig:skelmonad}, keeps track of the evaluation context.
 This context can have three forms: \skinl{Globl}, \skinl{InFun}, or \skinl{InClass}.
-\skinl{Globl} means ``In the global scope'', or ``At top level'', it does not provide any additional information.
+\skinl{Globl} means ``In the global scope,'' or ``At top level,'' it does not provide any additional information.
 The \skinl{InFun} state contains a \skinl{scope_info} and represents the evaluation of a function.
 The \skinl{InClass} is described in the next section.
 We need to be able to distinguish between contexts because the scoping rules are different in a function, a class, or at toplevel.
@@ -660,7 +663,7 @@ Python, before detailing the scope issues and our implementation in Skel.
 A class defines a new \emph{type}, it consists of a set of \emph{fields}, declared in the class body.
 Classes can inherit from each other, the set of fields of a class and its super classes forms the \emph{attributes} of the class.
 
-This set of fields is given as a list of statement, just like a function body.
+This set of fields is given as a list of statements, just like a function body.
 It may contain global and non local variables, declared with the \mintinline{python}{global} and \mintinline{python}{nonlocal} keywords.
 The variables so defined are not part of the fields of the class.
 
@@ -692,7 +695,7 @@ In particular, if an instance accesses a function of its class, a new \emph{meth
 This method contains two addresses: the instance (i.e., calling object) and the function.
 Thus, the method call simply passes the instance as first parameter to the function.
 The given instance is modified according to the function body defined in the class.
-This mechanism is illustrated Figure~\vref{fig:method}.
+This mechanism is illustrated in Figure~\ref{fig:method}.
 
 \begin{figure}[ht!]
   \centering
@@ -736,8 +739,8 @@ To understand why, we next clarify the differences between classes and functions
 
 Firstly, class variables cannot be uninitialized, hence we do not need partial maps.
 Secondly, fields exist only in the class, they are not accessible from functions
-or classes defined inside the class. Thus the scope chain need to bypass classes (see example figure~\vref{fig:classscope}).
-Finally, classes scopes cannot be shared (as fields only exist in the class), so
+or classes defined inside the class. Thus the scope chain need to bypass classes (see Figure~\ref{fig:classscope}).
+Finally, class scopes cannot be shared (as fields only exist in the class), so
 there is no need to store them on the heap.
 
 \begin{figure}[ht]
@@ -755,14 +758,14 @@ def foo():
 foo().bar() # 0
     \end{minted}
   \end{minipage}
-  \caption{\label{fig:classscope}Scopes interaction between functions and classes.}
+  \caption{\label{fig:classscope}Scopes interaction between functions and classes}
 \end{figure}
 
 
 Hence, we need a simple address map, like the global scope, with some upper scope for nonlocal variables.
 In case of nested classes, we may need to pause the current class scope to evaluate the subclass.
 This is why we have a \texttt{scope_stack} in the mutable state.
-At any point of the program, the length of the stack corresponds the number of classes we entered to reach the program point.
+At any point of the program, the length of the stack corresponds to the number of classes we entered to reach the program point.
 Once the body of the class is fully evaluated, we pop the scope from the stack to obtain the expected dictionary.
 
 The final type of the environment is defined below.
@@ -827,10 +830,10 @@ diagram in Figure~\vref{fig:pyskel}.
 \end{figure}
 
 The \texttt{necroml} program generates specified terms and requires an implementation of unspecified ones.
-This implementation is written in OCaml and it part of the PySkel project.
+This implementation is written in OCaml and it is part of the PySkel project.
 With this two parts, a functor instantiation gives the Python interpreter.
 We can run this interpreter by providing a program and some initial state (which
-correspond to the state part the monad).
+corresponds to the state part of the monad).
 This state is computed from a prelude file containing the builtin classes (such as exceptions) and some glue to fit well with the Skel semantics (see Section~\vref{sec:internal function}).
 Python programs are parsed with the \texttt{pyre-ast} OCaml library and then translated to the PySkel AST.
 The whole code is available at the following url: \href{https://gitlab.inria.fr/skeletons/pyskel}{\url{https://gitlab.inria.fr/skeletons/pyskel}}.
@@ -864,8 +867,7 @@ class int(object):
     \end{minted}
   \end{minipage}
 \end{figure}
-
-Then, in the semantics, the \texttt{call_internal} function redirects the call to execute the desired code, as shown Figure~\vref{fig:call internal}
+Then, in the semantics, the \texttt{call_internal} function redirects the call to execute the desired code, as shown in Figure~\ref{fig:call internal}
 
 \begin{figure}[ht]
   \centering
@@ -925,8 +927,8 @@ that we describe the semantics directly at the source code level. The desugared
 semantics can be quite different from the source, especially when it is
 CPS-transformed to deal with generators. Understanding the semantics of a Python
 program by looking at an execution of its desugared version may be challenging.
-Although we have not yet implemented generators, we discuss how we plan to
-seamlessly handle them in Section~\ref{sec:conclusion}.
+Although we have not yet implemented generators,
+In Section~\ref{sec:conclusion} we discuss how we plan to seamlessly handle them.
 
 Finally, some recent work aims at giving a semantics of Python's bytecode
 through a formalization in F*~\cite{Karkour2022}. Once again, it is challenging
