@@ -120,7 +120,7 @@ on Monat's denotational semantics of Python~\cite{Monat2021}.
 The Skeletal Semantics description of a language can be thought of as an
 interpreter written in a tiny functional language, called Skel. There are a few features
 that distinguish such a description from a usual interpreter. First, Skel allows
-for partial and non-deterministic programs with the \skinl{branch} construct.
+for partial\footnote{Partial means that a Skel program can return no value, with an empty branch.} and non-deterministic programs with the \skinl{branch} construct.
 Next, it is not necessary to specify everything: some types or functions may be
 left unspecified, either because they are not crucial to the description of the
 language, because they are implementation dependent, or because they are
@@ -901,6 +901,16 @@ val call_internal ((internal : internal), (args : list<addr>)) : m<addr> =
 
 The connection between the decorator and the internal call is done during the
 translation from the Pyre AST to the Skel AST.
+
+\subsection{Using the Derived Interpreter to Test the Semantics}
+Once the interpreter is derived, we are able to execute Python programs.
+The test suite of PySkel consists of a set of Python files, executed two times: once with the official CPython interpreter and once with PySkel.
+We then check if the results are the same.
+We test semantics aspects as well as the construction of the initial state.
+This gives us good reason to believe that our interpreter correctly evaluates a python program.
+
+We mentioned the existence of a derived debugger.
+This work is still experimental but we have succeeded in evaluating a step-by-step program for inspecting the internal state of the interpreter.
 
 \section{Related Work}\label{sec:related}
 There have been several proposals to formalize the semantics of Python. Monat gives a denotational
