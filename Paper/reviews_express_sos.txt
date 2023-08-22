@@ -1,0 +1,195 @@
+SUBMISSION: 8
+TITLE: Skeletal Semantics of Python
+
+----------------------- REVIEW 1 ---------------------
+SUBMISSION: 8
+TITLE: Skeletal Semantics of Python
+AUTHORS: Martin Andrieux and Alan Schmitt
+
+----------- Overall evaluation -----------
+SCORE: 1 (weak accept)
+----- TEXT:
+Skel is a language that supports the formulation of semantics of programming
+languages, which can then (among other things) be used to generate an
+executable interpreter. This paper applies Skel to give a semantics for a
+fragment of Python, incorporating the non-trivial semantics involved in scoping
+variables within functions and classes.
+
+Overall, I feel like this work does a good job of motivating Skel, and of
+showcasing its capabilities to give a clear and succinct semantics for a
+complicated (and not always sufficiently understood) aspect of Python. It makes
+for an excellent tutorial. The explanations of the phenomena under study are
+also quite clear, to the point where I have no technical questions.
+
+On the other hand, I genuinely wonder if this paper meets the threshold to be a
+scientific contribution publishable at this workshop. The text does not lay out
+any specific objective for the paper, and no contributions are claimed as such.
+Perhaps this paper is the first in a larger effort to provide a formalized and
+executable semantics of Python, built in Skel. This would be exciting, but I
+am not sure if the fragment considered is large enough to be a prototype.
+
+Another thing that I feel is missing from the presentation is some sort of
+external validation. It is mentioned that there is a test suite which compares
+the PySkel semantics against the reference implementation, but it is not clear
+if the tests are purpose-built or sourced from the official implementation. In
+the latter case, it might be a good indication what percentage of the reference
+implementation test suite passes.
+
+Presentation
+------------
+
+p1: The Skel formalization provides an executable semantics. Are there any
+    other potentially beneficial artifacts that can be derived?
+
+p6-7: The example about the difference between NameError and UnboundLocalError
+      feels a bit off --- the second line is never reached, because the first
+      one raises a NameError. Perhaps it would be best to split this in two.
+
+p8: For those unfamiliar with Python, it may be worth it to (very briefly)
+    explain what fields are.
+
+p8: If I recall correctly, primitive values in Python have frozen fields, i.e.,
+    I cannot run x.y = 1 when x is an integer. Does your implementation take
+    this into account?
+
+p9: I'm still not entirely sure why the last and second-to-last line of Figure
+    7 are not the same. The prose says that the difference is that, in the
+    second-to-last line a "method" is allocated, but how is this different from
+    a function call, with scope and the other usual attributes?
+
+p10: This is not so much a comment, but a question with the intent of trying
+     to bridge the contents of this paper with the more traditional contents
+     of EXPRESS/SOS. Would it be possible to take a Skel semantics and
+     generate a traditional "on paper" structural operational semantics? And,
+     in the same vein, do the usually sought after results about bisimulation
+     being a congruence make sense for Skel?
+
+Typography
+----------
+
+p1: "none of them" -> "neither of them"
+
+p1: "and [modifies] some state"
+
+p2: "Skel[,] having first-order functions and polymorphic types, [can be]
+    easily equipped"
+
+p2: "It then [runs]"
+
+p3: "[scope] management"
+
+p4: "are lexical[:] they correspond"
+
+p6: "the scope still [needs] to be present"
+
+p8: "the [variable] map is computed"
+
+p9: "global and [non-local] variables"
+
+p9: "A class defines a new type, [consisting] of a"
+
+p9: "Instances [share]"
+
+p10: "they are not accessible from functions or classes defined inside the
+     class" what about through "self"?
+
+p11: "and [translates] it to"
+
+p11: "with [these] two parts"
+
+p13: "the formalization [covers only] a tiny"
+
+----------------------- REVIEW 2 ---------------------
+SUBMISSION: 8
+TITLE: Skeletal Semantics of Python
+AUTHORS: Martin Andrieux and Alan Schmitt
+
+----------- Overall evaluation -----------
+SCORE: -1 (weak reject)
+----- TEXT:
+This paper reports on a formalization of the Python programming language in Skel, a semantics engineering tool.
+The paper describes the challenges in implementing the scoping rules of Python.
+The formalization has been used to automatically derive an OCaml interpreter that can execute Python programs.
+
+The paper addresses the major elements that characterize Python's LEGB scoping rules and the use of the various keywords (global,nonlocal) to manually drive scoping. The data types offered to accommodate scopes, and the overall
+organization of the part of the formalization that the paper shows seem reasonable, though there is much of the formalization that we do not see.
+
+My reservations are the following:
+
+- Details about the evaluation are insufficient for me to evaluate whether the formalization proposed is satisfactory.
+  The derived OCaml interpreter can be execute Python programs but the paper does not provide information about the tests that have been performed. How many tests? How large are they? Are they real-world programs or are they toy
+examples? With insufficient details, I find it difficult to know whether this all works satisfactorily.
+  Other works, such as the formalization of Python in the K framework, provide a large number of tests (see https://github.com/runtimeverification/python-semantics/tree/master/programs).
+  The paper says "We test semantics aspects as well" without any further explanation. What aspects? And how are they tested?
+
+- It is not clear how much of Python, and how faithfully, the formalization captures.
+  The paper leaves the reader with little idea about the features of Python that have been covered. Just a couple of examples,
+  (i) for-loops such as 'for a in mylist: ...body where a is in scope... ' introduce scope&binding, as well, but there is no discussion about them. If they are not captured, I doubt that there are many real-world programs that the
+interpreter can run.
+  (ii) Visibility is not the only relevant aspect about names in Python, the way names are used is also relevant. For example, names of references follow a 'sharing' discipline a la' CLU rather than a plain reference discipline. That
+is, although code such as
+
+	def f(lst):
+	    lst.append(4)
+
+	mylist = [1, 2, 3]
+	f(mylist)
+
+  updates mylist to [1,2,3,4] after f returns, in the following code
+
+	def f(lst):
+	    lst = [4,5]
+
+	mylist = [1, 2, 3]
+	f(my_list)
+
+  the reassignment of the reference is disallowed and mylist still points to [1, 2, 3] after f returns.
+  Are these aspects faithfully formalized? (I have mentioned just a couple of examples with (i) and (ii) here. I think that a proper evaluation is in order to convince the reader that the formalization proposed is faithful to Python.)
+
+Minor remark: I think the title of this paper is too general, as many aspects are not discussed. This paper seems to be specific to Python's scoping aspects and perhaps it should be reflected in the title.
+
+----------------------- REVIEW 3 ---------------------
+SUBMISSION: 8
+TITLE: Skeletal Semantics of Python
+AUTHORS: Martin Andrieux and Alan Schmitt
+
+----------- Overall evaluation -----------
+SCORE: -2 (reject)
+----- TEXT:
+This paper presents the authors' effort in devising a Python interpreter using the Skel tool.
+
+The paper falls short in the following aspects:
+
+Title vs Content: Despite the paper's title and claims suggesting the presentation of Python's semantics, the content fails to deliver any traditional notion of semantics.
+
+Traditional Semantics: A conventional interpretation of semantics entails either a mathematical abstraction of term meanings (denotational semantics), an abstract computational model (operational semantics), or a logical system of term
+properties (axiomatic semantics).
+This paper lacks all these aspects, offering only a brief tutorial on scopes.
+
+Absence of Mathematical Detail: If the 'pyskel' implementation is the intended semantics, it lacks the rigorous mathematical exposition expected in academic papers.
+
+Comparison with Prior Implementations: The paper contrasts its approach with [9] (and implicitly the reference C implementation). The paper critiques [9] for using the CPS form and for its desugaring process. Yet, it fails to justify
+why its own approach using Skel, with 1200 lines of code, offers better comprehensibility.
+
+Lack of Clarity on the Python Subset Supported: The paper does not clearly delineate the subset of Python it addresses. While there's a mention of extending [5] with scopes, and not supporting generators as [9] does, any other unhandled
+features remain unidentified.
+
+In conclusion, while the paper attempts to introduce a novel approach of Python semantics using Skel, it lacks the rigour and clarity expected from academic papers on PL Semantics. The authors would perhaps consider rewriting this paper
+showcasing the implementation of a Python interpreter using Skel, however not claiming that this provides a semantics for Python.
+
+----------------------- REVIEW 4 ---------------------
+SUBMISSION: 8
+TITLE: Skeletal Semantics of Python
+AUTHORS: Martin Andrieux and Alan Schmitt
+
+----------- Overall evaluation -----------
+SCORE: 2 (accept)
+----- TEXT:
+Summary: The authors propose a formalization of the semantics of the programming language Python, called PySkel. The work is carried out in the language Skel, a meta language for semantics description. The semantics formalization is
+given only for a limited subset of the standard library of Python, nonetheless some interesting challenges are addressed in the work such as the way in which Python handles variables scope and the implementation of objects and classes.
+Lastly a way to test the semantics is given in the form of an interpreter of Python which is generated from the PySkel specification.
+
+Evaluation: The paper is well-written and structured. The contribution is not a pure novelty since formalizations of Python semantics are not new, as the authors themselves remark in Section 6, and the work itself is based on previous
+works. Nonetheless the paper expands on such previous works providing executable code, which link is provided in the article, to test this approach. The approach is promising in that, being carried forward in Skel, it can be expanded
+using the tools already developed for this language, such as the tools of the Necro ecosystem. I think that the remaining space could have been used to expand the Introduction to further motivate the use of Skel and providing examples
+of applications of the aforementioned tools.
