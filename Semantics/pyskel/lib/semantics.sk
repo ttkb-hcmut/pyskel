@@ -292,7 +292,7 @@ val catch_flag<a> ((m: m<a>), (f: flag -> m<a>)) : m<a> =
   | Flag flg -> f flg
   end
 
-binder ? = catch_flag
+binder / = catch_flag
 
 (** 4.3 State-Dependant Monadic Function *)
 val ret (v : addr) : m<addr> = return<addr> v
@@ -641,7 +641,7 @@ val eval_fun_call ((at_args: list<addr>), (a: list<id>), (loc: list<id>), (body:
 
   let local_body_eval = local<addr> (set_locals, body_evaluation) in
 
-  let flag =? local_body_eval in
+  let flag =/ local_body_eval in
   match flag with
   | Ret a -> return<addr> a
   | f -> set_flag<addr> f
@@ -853,7 +853,7 @@ val eval_stmt (s: stmt) : m<()> =
     let at_exn =@ eval_expr e in
     raise<()> at_exn
   | STry (tbody, (exn, texc)) ->
-    let flag =? eval_stmts tbody in
+    let flag =/ eval_stmts tbody in
     match flag with
     | Exn raised ->
       let baseException =@ read_env _BaseException in
