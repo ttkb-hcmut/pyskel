@@ -63,7 +63,7 @@ type expr =
 type internal = | IntAdd
 
 
-(*** 2. Functions relative to Python AST ***)
+(*** 2. Builtin Declarations ***)
 
 (* Some strings needed by the interpreter *)
 (* Builtin classes *)
@@ -193,7 +193,7 @@ type flag =
   | Exn addr (* raise *)
 
 
-(*** 4 Interpreter's Monad ***)
+(*** 4. Interpreter Monad ***)
 (** 4.1 Types *)
 type r = (local_env: env, builtins: builtins)
 type s = ( global_scope: global_scope
@@ -374,7 +374,7 @@ val get_scope_up (():()) : m<maybe<scope_info>> =
   end in
   return<maybe<scope_info>> scope_up
 
-(*** 5. Read and Write ***)
+(*** 5. Read and Write in Scopes ***)
 (** 5.1 Read **)
 val find_global (id: id) : m<addr> =
   let s =@ get in
@@ -509,7 +509,7 @@ val write_env ((id: id), (a: addr)) : m<()> =
   end
 
 
-(*** 6. Interpreter Itself ***)
+(*** 6. The Interpreter ***)
 (** 6.1 Inital State **)
 val initialized_heap (() : ()) : (r, python_heap) =
   let h = initialHeap<(obj_n, obj_s)> in
