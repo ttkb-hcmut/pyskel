@@ -5,12 +5,10 @@ Python Semantics in Skel.
 
 First, ensure to have `opam` and `dune` installed on your system.
 To build the projetct, you first need to install the necro toolchain.
-(Note that version 0.3 and above of `necroml` is not yet supported, hence the `pin` instruction below.)
 ``` sh
-opam switch create pyskel 4.14.0
+opam switch create pyskel 4.14.1
 eval $(opam env)
 opam repository add necro https://gitlab.inria.fr/skeletons/opam-repository.git#necro
-opam pin necroml 0.2.11.4.1
 opam install necroml pyre-ast
 ```
 
@@ -23,8 +21,11 @@ To build the project, go in `Semantics/pyskel` and run:
 ``` sh
 ./setup.sh
 dune build
-dune test # to run the test suite
+dune test # to run the test suite, or
+dune exec pyskel path_to_file.py # to run a given file
 ```
+
+Note that since `pyskel` has no printing support at the moment, the contents of the `__result__` global variable are displayed after the execution of the python file. Please set it in your code to observe its execution.
 
 ### Module system
 
