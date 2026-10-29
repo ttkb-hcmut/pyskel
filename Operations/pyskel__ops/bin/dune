@@ -1,0 +1,4 @@
+(executable
+ (public_name pyskel__ops)
+ (name main)
+ (libraries pyskel__ops))
